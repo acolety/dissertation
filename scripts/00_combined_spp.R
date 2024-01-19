@@ -5,7 +5,12 @@
 # LICHENS: himantormia, stereocaulon, usnea ant, usnea aur
 
 ### TO DO: data tranformations (could try scaling), determine best 
-### covariates
+### covariates, collinearity troubleshooting
+
+### approaches to data transformations:
+### scaling, adding 60 to all a_corrected values (min val is -59.19) and log transform
+### (or boxcox), cube root
+### alt use kurskal wallis or bayesian
 
 # libraries ----
 library(tidyverse)
@@ -13,6 +18,8 @@ library(skimr)
 library(brms)
 library(tidybayes)
 library(MASS)
+library(corrplot)
+
 
 # loading data ----
 andreaea_df <- read.csv("data\\andreaea.csv") %>% 
@@ -270,6 +277,7 @@ lichen_00 <- bind_rows(himantormia_df, stereocaulon_df, usnea_antarctica_df,
 ### View(lichen_00)
 
 # raw data plots ----
+## weight (wetness)
 ggplot(all_00, aes(x = weight, y = a_corrected, color = species)) +
   facet_wrap(~ species, nrow = 4, ncol = 2, scales = "free") +
   geom_point(show.legend = FALSE) +
@@ -277,6 +285,7 @@ ggplot(all_00, aes(x = weight, y = a_corrected, color = species)) +
   geom_smooth(show.legend = FALSE, se = FALSE) +
   theme_classic()
 
+## cuvette temp
 ggplot(all_00, aes(x = tcuv, y = a_corrected, color = species)) +
   facet_wrap(~ species, nrow = 4, ncol = 2, scales = "free") +
   geom_point(show.legend = FALSE) +
@@ -284,6 +293,7 @@ ggplot(all_00, aes(x = tcuv, y = a_corrected, color = species)) +
   geom_smooth(show.legend = FALSE, se = FALSE) +
   theme_classic()
 
+## temperature (weather station)
 ggplot(all_00, aes(x = temp_ws, y = a_corrected, color = species)) +
   facet_wrap(~ species, nrow = 4, ncol = 2, scales = "free") +
   geom_point(show.legend = FALSE) +
@@ -291,12 +301,33 @@ ggplot(all_00, aes(x = temp_ws, y = a_corrected, color = species)) +
   geom_smooth(show.legend = FALSE, se = FALSE) +
   theme_classic()
 
+## light
 ggplot(all_00, aes(x = parweatherstation, y = a_corrected, color = species)) +
   facet_wrap(~ species, nrow = 4, ncol = 2, scales = "free") +
   geom_point(show.legend = FALSE) +
   geom_hline(yintercept = 0, color = "red") +
   geom_smooth(show.legend = FALSE, se = FALSE) +
   theme_classic()
+
+
+## checking collinearity 
+pairs(all_00[, c("parweatherstation", "temp_ws", "weight")])
+pairs(lichen_00[, c("parweatherstation", "temp_ws", "weight")])
+pairs(moss_00[, c("parweatherstation", "temp_ws", "weight")])
+
+ggplot(all_00, aes(x = parweatherstation, y = temp_ws)) +
+  geom_point() +
+  theme_classic()
+
+all_01 <- all_00 %>% 
+  dplyr::select_if(is.numeric)
+
+corrplot(cor(all_01, use = "everything"), method = "number", type = "upper")
+
+colinear <- lm(parweatherstation ~ temp_ws, data = all_00)
+
+summary(colinear)
+
 
 # modelling the relationships with light, temp, water ----
 
@@ -335,6 +366,9 @@ ggplot(moss_00, aes(x = a_corrected, fill = species)) +
   geom_histogram() +
   theme_classic()
 
+
+
+
 ## creating base linear model for lichen dataset
 ### null model
 lichen_null_lm <- lm(a_corrected ~ 1, data = lichen_00)
@@ -368,18 +402,64 @@ lichen_boxcox <- boxcox(lm(a_corrected ~ 1, data = lichen_00))  # can't boxcox w
 ####          boxcox_ph = (1/((soil_ph)^2)))
 
 
-## base lm for himantormia
-himantormia_lm_00 <- lm(a_corrected ~ parweatherstation, data = himantormia_df)
 
-summary(himantormia_lm_00)
-plot(himantormia_lm_00)
-shapiro.test(resid(himantormia_lm_00))  # non-normal distrib
+### trying adding constant to a_corrected for data transformations and modelling
+
+#### adding a_corr_60
+all_02 <- all_00 %>% 
+  mutate(a_corr_60 = a_corrected + 60)
+
+
+#### usnea ant
+range(usnea_antarctica_df$a_corrected)
+
+usnea_antarctica_01 <- usnea_antarctica_df %>% 
+  mutate(a_corr_8 = a_corrected + 8)
+
+#### boxcox transformation
+usnea_ant_boxcox <- boxcox(lm(a_corr_8 ~ 1, data = usnea_antarctica_01))
+lambda_us_ant <- usnea_ant_boxcox$x[which.max(usnea_ant_boxcox$y)]
+lambda_us_ant  # suggests log transformation
+
+usnea_antarctica_02 <- usnea_antarctica_01 %>% 
+  mutate(a_corr_8_box = log(a_corr_8) - log(8))
+      # not sure if this would be correct?
+
+ggplot(usnea_antarctica_02, aes(x = parweatherstation, y = a_corr_8_box)) +
+  geom_point() +
+  geom_hline(yintercept = 0)  # checking if it seems like the right # are neg
+
+ggplot(usnea_antarctica_01, aes(x = parweatherstation, y = a_corr_8)) +
+  geom_point() +
+  geom_hline(yintercept = 8)  # checking if it seems like the right # are neg
+
+usnea_ant_model_00 <- lm(a_corr_8_box ~ parweatherstation, data = usnea_antarctica_02)
+
+plot(usnea_ant_model_00)
+shapiro.test(resid(usnea_ant_model_00))  # data are normal! (by a slim margin)
+summary(usnea_ant_model_00)  # no impact of light on u. antarctica C assimilation
+
+##### what about including other factors?
+usnea_ant_model_01 <- lm(a_corr_8_box ~ log(parweatherstation) * temp_ws * weight, 
+                         data = usnea_antarctica_02)
+
+plot(usnea_ant_model_01)
+shapiro.test(resid(usnea_ant_model_01))  # not normal :( would have to check if
+                                         # parweartherstation, temp_ws, and weight are normal?
+
+hist(usnea_antarctica_df$parweatherstation)
+hist(usnea_antarctica_df$temp_ws)
+hist(usnea_antarctica_df$weight)
 
 
 
 
 # bayes experimentation ----
+## brms distribution options: vignette("brms_families")
+## setting up model formula: help(brmsformula)
+
 ## andreaea
+
 ### model
 andreaea_bayes <- brms::brm(a_corrected ~ parweatherstation, data = andreaea_df, 
                             family = gaussian(), chains = 3, iter = 3000, 
@@ -401,6 +481,7 @@ plot(andreaea_bayes)
 
 
 ## himantormia
+
 ### model
 himantormia_bayes <- brms::brm(a_corrected ~ parweatherstation, data = himantormia_df, 
                             family = gaussian(), chains = 3, iter = 3000, 
@@ -420,7 +501,9 @@ plot(himantormia_bayes)
     labs(x = "\nparweatherstation", y = "a_corrected\n") +
     theme_classic())
 
+
 ## lichen group
+
 ### model
 lichen_bayes <- brms::brm(a_corrected ~ parweatherstation, data = lichen_00, 
                           family = gaussian(), chains = 3, iter = 3000, 
@@ -430,9 +513,12 @@ pp_check(lichen_bayes)
 plot(lichen_bayes)
 
 hist(usnea_aurantiaco_atra_df$a_corrected)
-## usnea aur weight
+
+## usnea aur
+
 ### model
-usnea_aur_bayes <- brms::brm(a_corrected ~ weight, data = usnea_aurantiaco_atra_df, 
+usnea_aur_bayes <- brms::brm(a_corrected ~ weight, 
+                             data = usnea_aurantiaco_atra_df, 
                              family = gaussian(), chains = 3, iter = 3000, 
                              warmup = 1000)
 pp_check(usnea_aur_bayes)
