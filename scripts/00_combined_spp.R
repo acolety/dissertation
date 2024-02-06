@@ -427,7 +427,195 @@ ggplot(all00, aes(x = weight, y = aCorrected, color = species)) +
 
 # frequentist modelling approach ----
 
-## 1. usneaAnt 
+## 1. himantormia
+
+### a. standard lm
+
+#### i. light, temp, water with interaction
+himantormiaMod00 <- lm(aCorrected ~ parweatherstation * tempWS * weight, 
+                       data = himantormiaDf)
+
+plot(himantormiaMod00)                                                         # doesn't look super normal
+shapiro.test(resid(himantormiaMod00))                                          # says normal
+summary(himantormiaMod00)                                                      # no sig results (0.052 - 0.29)
+
+
+#### ii. individual factors
+
+##### 1. light
+himantormiaLight00 <- lm(aCorrected ~ parweatherstation, data = himantormiaDf)
+
+plot(himantormiaLight00)                                                       # not normal
+shapiro.test(resid(himantormiaLight00))                                        # confirms not normal
+
+
+##### 2. temperature
+himantormiaTemp00 <- lm(aCorrected ~ tempWS, data = himantormiaDf)
+
+plot(himantormiaTemp00)                                                        # not normal
+shapiro.test(resid(himantormiaTemp00))                                         # confirms not normal
+
+
+##### 3. water
+himantormiaWater00 <- lm(aCorrected ~ weight, data = himantormiaDf)
+
+plot(himantormiaWater00)                                                       # not very normal looking
+shapiro.test(resid(himantormiaWater00))                                        # says resid normal
+summary(himantormiaWater00)
+
+
+### b. boxcox transformation
+
+#### i. adding constant to remove negative aCorrected values
+range(himantormiaDf$aCorrected)                                                # min aCorrected is -1.41
+
+himantormiaDf <- himantormiaDf %>% 
+  mutate(aCorrectedBox = aCorrected + 2)
+
+
+#### ii. determining best transformation
+himantormiaTrans <- boxcox(lm(aCorrectedBox ~ 1, data = himantormiaDf))
+
+himantormiaTrans$x[which.max(himantormiaTrans$y)]                              # suggests log transformation
+
+
+#### iii. making transformation
+himantormiaDf <- himantormiaDf %>% 
+  mutate(aCorrectedBox2 = log(aCorrectedBox) - log(2))                         # is this math right
+
+
+##### 1. checking if plot looks right
+
+###### a. before transformation
+ggplot(himantormiaDf, aes(x = parweatherstation, y = aCorrectedBox)) +
+  geom_point() +
+  ylim(0, 5) +
+  geom_hline(yintercept = 2)  
+
+
+###### b. transformed
+ggplot(himantormiaDf, aes(x = parweatherstation, y = aCorrectedBox2)) +
+  geom_point() +
+  ylim(-1.5, 0.5) +
+  geom_hline(yintercept = 0)                                                   # seems like its worked
+
+
+### c. retrying lm with log transformed aCorrected
+
+#### i. light, temp, water with interaction just for kicks
+himantormiaMod01 <- lm(aCorrectedBox2 ~ parweatherstation * tempWS * weight, 
+                    data = himantormiaDf)
+
+plot(himantormiaMod01)                                                         # normal, looks slightly better than non-logged
+shapiro.test(resid(himantormiaMod01))                                          # confirms still normal
+summary(himantormiaMod01)
+
+
+#### ii. individual factors
+
+##### 1. light
+himantormiaLight01 <- lm(aCorrectedBox2 ~ parweatherstation, data = himantormiaDf)
+
+plot(himantormiaLight01)                                                       # normal, bit wonky
+shapiro.test(resid(himantormiaLight01))                                        # confirms normal
+summary(himantormiaLight01)                                                    # no sig relationship (0.91)
+
+
+##### 2. temperature
+himantormiaTemp01 <- lm(aCorrectedBox2 ~ tempWS, data = himantormiaDf)
+
+plot(himantormiaTemp01)                                                        # doesn't look normal
+shapiro.test(resid(himantormiaTemp01))                                         # confirms normal but I don't trust well
+summary(himantormiaTemp01)                                                     # no sig relationship (0.96)
+
+
+
+## 2. stereocaulon
+
+#### i. light, temp, water with interaction
+stereocaulonMod00 <- lm(aCorrected ~ parweatherstation * tempWS * weight, 
+                        data = stereocaulonDf)
+
+plot(stereocaulonMod00)                                                        # doesn't look particularly normal
+shapiro.test(resid(stereocaulonMod00))                                         # says it's normal
+summary(stereocaulonMod00)                                                     # no sig effects (0.54 - 0.66)
+
+
+#### ii. individual factors
+
+##### 1. light
+stereocaulonLight00 <- lm(aCorrected ~ parweatherstation, data = stereocaulonDf)
+
+plot(stereocaulonLight00)                                                      # looks normal (but scale-location icky)
+shapiro.test(resid(stereocaulonLight00))                                       # confirms normal
+summary(stereocaulonLight00)                                                   # no effect (0.20)
+
+
+##### 2. temperature
+stereocaulonTemp00 <- lm(aCorrected ~ tempWS, data = stereocaulonDf)
+
+plot(stereocaulonTemp00)                                                       # wonky
+shapiro.test(resid(stereocaulonTemp00))                                        # not normal
+
+
+##### 3. water
+stereocaulonWater00 <- lm(aCorrected ~ weight, data = stereocaulonDf)
+
+plot(stereocaulonWater00)                                                      # very not normal
+shapiro.test(resid(stereocaulonWater00))                                       # says normal but I don't trust
+summary(stereocaulonWater00)                                                   # positive effect (p < 0.05)
+
+
+### b. boxcox transformation
+
+#### i. adding constant to remove negative aCorrected values
+range(stereocaulonDf$aCorrected)                                               # min aCorrected is -0.04
+
+stereocaulonDf <- stereocaulonDf %>% 
+  mutate(aCorrectedBox = aCorrected + 1)
+
+
+#### ii. determining best transformation
+stereocaulonTrans <- boxcox(lm(aCorrectedBox ~ 1, data = stereocaulonDf))
+
+stereocaulonTrans$x[which.max(stereocaulonTrans$y)]                            # suggests log transformation
+
+
+#### iii. making transformation
+stereocaulonDf <- stereocaulonDf %>% 
+  mutate(aCorrectedBox2 = log(aCorrectedBox) - log(1))                         # is this math right
+
+
+### c. retrying lm with log transformed aCorrected
+
+#### i. light, temp, water with interaction
+stereocaulonMod01 <- lm(aCorrectedBox2 ~ parweatherstation * tempWS * weight, 
+                        data = stereocaulonDf)
+
+plot(stereocaulonMod01)                                                        # still looking rough tbh
+shapiro.test(resid(stereocaulonMod01))                                         # says it's normal but I don't trust
+summary(stereocaulonMod01)                                                     # no sig impacts
+
+
+#### ii. individual factors
+
+##### 1. temperature
+stereocaulonTemp01 <- lm(aCorrectedBox2 ~ tempWS, data = stereocaulonDf)
+
+plot(stereocaulonTemp01)                                                       # overall good w some funkiness
+shapiro.test(resid(stereocaulonTemp01))                                        # says resid normal
+summary(stereocaulonTemp01)                                                    # no sig relationship (0.77)
+
+
+##### 2. water just to confirm
+stereocaulonWater01 <- lm(aCorrectedBox2 ~ weight, data = stereocaulonDf)
+
+plot(stereocaulonWater01)                                                      # somehow even worse
+shapiro.test(resid(stereocaulonWater01))                                       # says normal but def not
+
+
+
+## 3. usneaAnt 
 
 ### a. standard lm
 
@@ -444,8 +632,8 @@ shapiro.test(resid(usneaAntMod00))                                             #
 ##### 1. light
 usneaAntLight00 <- lm(aCorrected ~ parweatherstation, data = usneaAntDf)
 
-plot(usneaAntLight00)                                                            # not normal
-shapiro.test(resid(usneaAntLight00))                                             # confirms not normal
+plot(usneaAntLight00)                                                          # not normal
+shapiro.test(resid(usneaAntLight00))                                           # confirms not normal
 
 
 ##### 2. temperature
@@ -580,7 +768,7 @@ summary(usneaAntMod03)                                                         #
 
 
 
-## 2. usnea aurantiaco-atra
+## 4. usnea aurantiaco-atra
 
 #### i. light, temp, water with interaction
 usneaAurMod00 <- lm(aCorrected ~ parweatherstation * tempWS * weight, 
@@ -721,7 +909,97 @@ summary(usneaAurMod03)
 ## investigate model results in R: methods(class = "brmsfit")
 ## help with priors: get_prior
 
-## 1. usneaAnt
+## 1. himantormia
+
+### a. interaction
+himantormiaBayes00 <- brms::brm(aCorrected ~ parweatherstation * tempWS * weight, 
+                                data = himantormiaDf, family = gaussian(), 
+                                chains = 4, iter = 5000, warmup = 1000)
+
+pp_check(himantormiaBayes00)
+plot(himantormiaBayes00)                                                       # not good
+summary(himantormiaBayes00)
+
+
+### b. no interaction
+
+#### i. light
+himantormiaBayesLight <- brms::brm(aCorrected ~ parweatherstation, 
+                                   data = himantormiaDf, family = gaussian(), 
+                                   chains = 3, iter = 3000, warmup = 1000)
+
+pp_check(himantormiaBayesLight)
+plot(himantormiaBayesLight)                                                    # looks good
+summary(himantormiaBayesLight)
+
+
+#### ii. temp
+himantormiaBayesTemp <- brms::brm(aCorrected ~ tempWS, data = himantormiaDf, 
+                                  family = gaussian(), chains = 3, iter = 3000, 
+                                  warmup = 1000)
+
+pp_check(himantormiaBayesTemp)
+plot(himantormiaBayesTemp)                                                     # looks good
+summary(himantormiaBayesTemp)
+
+
+#### iii. water
+himantormiaBayesWater <- brms::brm(aCorrected ~ weight, data = himantormiaDf, 
+                                   family = gaussian(), chains = 3, iter = 3000, 
+                                   warmup = 1000)
+
+pp_check(himantormiaBayesWater)
+plot(himantormiaBayesWater)
+summary(himantormiaBayesWater)
+
+
+
+## 2. stereocaulon
+
+### a. interaction
+stereocaulonBayes00 <- brms::brm(aCorrected ~ parweatherstation * tempWS * weight, 
+                                 data = stereocaulonDf, family = gaussian(), 
+                                 chains = 4, iter = 5000, warmup = 1000)       # lots of issues
+
+pp_check(stereocaulonBayes00)
+plot(stereocaulonBayes00)                                                      # very poor
+summary(stereocaulonBayes00)
+
+
+### b. no interaction
+
+#### i. light
+stereocaulonBayesLight <- brms::brm(aCorrected ~ parweatherstation, 
+                                    data = stereocaulonDf, family = gaussian(), 
+                                    chains = 3, iter = 3000, warmup = 1000)
+
+pp_check(stereocaulonBayesLight)
+plot(stereocaulonBayesLight)                                                   # looks good
+summary(stereocaulonBayesLight)
+
+
+#### ii. temp
+stereocaulonBayesTemp <- brms::brm(aCorrected ~ tempWS, data = stereocaulonDf, 
+                                   family = gaussian(), chains = 3, iter = 3000, 
+                                   warmup = 1000)
+
+pp_check(stereocaulonBayesTemp)
+plot(stereocaulonBayesTemp)                                                    # looks good
+summary(stereocaulonBayesTemp)
+
+
+#### iii. water
+stereocaulonBayesWater <- brms::brm(aCorrected ~ weight, data = stereocaulonDf, 
+                                    family = gaussian(), chains = 3, iter = 3000, 
+                                    warmup = 1000)
+
+pp_check(stereocaulonBayesWater)
+plot(stereocaulonBayesWater)                                                   # looks good
+summary(stereocaulonBayesWater)
+
+
+
+## 3. usnea antarctica
 
 ### a. interaction
 usneaAntBayes00 <- brms::brm(aCorrected ~ parweatherstation * tempWS * weight, 
@@ -765,7 +1043,52 @@ summary(usneaAntBayesWater)                                                    #
 
 
 
-## 2. andreaea
+## 4. usnea aurantiaco-atra
+
+### a. interaction
+usneaAurBayes00 <- brms::brm(aCorrected ~ parweatherstation * tempWS * weight, 
+                             data = usneaAurDf, family = gaussian(), 
+                             chains = 4, iter = 5000, warmup = 1000)
+
+pp_check(usneaAurBayes00)
+plot(usneaAurBayes00)                                                          # could be worse
+summary(usneaAurBayes00)
+
+
+### b. no interaction
+
+#### i. light
+usneaAurBayesLight <- brms::brm(aCorrected ~ parweatherstation, 
+                                data = usneaAurDf, family = gaussian(), 
+                                chains = 3, iter = 3000, warmup = 1000)
+
+pp_check(usneaAurBayesLight)
+plot(usneaAurBayesLight)                                                       # looks good
+summary(usneaAurBayesLight)
+
+
+#### ii. temp
+usneaAurBayesTemp <- brms::brm(aCorrected ~ tempWS, data = usneaAurDf, 
+                               family = gaussian(), chains = 3, iter = 3000, 
+                               warmup = 1000)
+
+pp_check(usneaAurBayesTemp)
+plot(usneaAurBayesTemp)                                                        # looks good
+summary(usneaAurBayesTemp)
+
+
+#### iii. water
+usneaAurBayesWater <- brms::brm(aCorrected ~ weight, data = usneaAurDf, 
+                                family = gaussian(), chains = 3, iter = 3000, 
+                                warmup = 1000)
+
+pp_check(usneaAurBayesWater)
+plot(usneaAurBayesWater)                                                       # looks good
+summary(usneaAurBayesWater)
+
+
+
+## 5. andreaea
 
 ### a. interaction
 andreaeaBayes00 <- brms::brm(aCorrected ~ parweatherstation * tempWS * weight, 
@@ -819,47 +1142,3 @@ summary(andreaeaBayesWater)
     labs(x = "\nweight", y = "a_corrected\n") +
     theme_classic())
 
-
-
-## 3. himantormia
-
-### a. interaction
-himantormiaBayes00 <- brms::brm(aCorrected ~ parweatherstation * tempWS * weight, 
-                                data = himantormiaDf, family = gaussian(), 
-                                chains = 4, iter = 5000, warmup = 1000)
-
-pp_check(himantormiaBayes00)
-plot(himantormiaBayes00)                                                       # not good
-summary(himantormiaBayes00)
-
-
-### b. no interaction
-
-#### i. light
-himantormiaBayesLight <- brms::brm(aCorrected ~ parweatherstation, 
-                                   data = himantormiaDf, family = gaussian(), 
-                                   chains = 3, iter = 3000, warmup = 1000)
-
-pp_check(himantormiaBayesLight)
-plot(himantormiaBayesLight)                                                    # looks good
-summary(himantormiaBayesLight)
-
-
-#### ii. temp
-himantormiaBayesTemp <- brms::brm(aCorrected ~ tempWS, data = himantormiaDf, 
-                                  family = gaussian(), chains = 3, iter = 3000, 
-                                  warmup = 1000)
-
-pp_check(himantormiaBayesTemp)
-plot(himantormiaBayesTemp)                                                     # looks good
-summary(himantormiaBayesTemp)
-
-
-#### iii. water
-himantormiaBayesWater <- brms::brm(aCorrected ~ weight, data = himantormiaDf, 
-                                   family = gaussian(), chains = 3, iter = 3000, 
-                                   warmup = 1000)
-
-pp_check(himantormiaBayesWater)
-plot(himantormiaBayesWater)
-summary(himantormiaBayesWater)
