@@ -8,7 +8,7 @@
 ### Mann Whitney U for non-normal data?
 
 ### approaches to data transformations:
-### scaling, adding 60 to all a_corrected values (min val is -59.19) and log transform
+### scaling, adding constant to aCorrected, and log transform
 ### (or boxcox), cube root
 ### alt use nonparametric equivalent or bayesian
 
@@ -398,13 +398,14 @@ ggplot(all_00, aes(x = a_corrected)) +
 # plotting raw data ----
 
 ## 1. light
-ggplot(all00, aes(x = parweatherstation, y = aCorrected, color = species)) +
+### a. check partop or parweatherstation
+ggplot(all00, aes(x = partop, y = aCorrected, color = species)) +
   facet_wrap(~ species, nrow = 4, ncol = 2, scales = "free") +
   geom_point(show.legend = FALSE) +
   geom_hline(yintercept = 0, color = "red") +
   geom_smooth(show.legend = FALSE) +
   theme_classic()
-
+View(all00)
 
 ## 2. temperature (weather station)
 ggplot(all00, aes(x = tempWS, y = aCorrected, color = species)) +
@@ -461,7 +462,7 @@ himantormiaWater00 <- lm(aCorrected ~ weight, data = himantormiaDf)
 
 plot(himantormiaWater00)                                                       # not very normal looking
 shapiro.test(resid(himantormiaWater00))                                        # says resid normal
-summary(himantormiaWater00)
+summary(himantormiaWater00)                                                    # positive effect (p < 0.05)
 
 
 ### b. boxcox transformation
@@ -639,15 +640,15 @@ shapiro.test(resid(usneaAntLight00))                                           #
 ##### 2. temperature
 usneaAntTemp00 <- lm(aCorrected ~ tempWS, data = usneaAntDf)
 
-plot(usneaAntTemp00)                                                             # not normal
-shapiro.test(resid(usneaAntTemp00))                                              # confirms not normal
+plot(usneaAntTemp00)                                                           # not normal
+shapiro.test(resid(usneaAntTemp00))                                            # confirms not normal
 
 
 ##### 3. water
 usneaAntWater00 <- lm(aCorrected ~ weight, data = usneaAntDf)
 
-plot(usneaAntWater00)                                                            # not normal
-shapiro.test(resid(usneaAntWater00))                                             # confirms not normal
+plot(usneaAntWater00)                                                          # not normal
+shapiro.test(resid(usneaAntWater00))                                           # confirms not normal
 
 
 ### b. boxcox transformation
@@ -797,8 +798,8 @@ shapiro.test(resid(usneaAurTemp00))                                            #
 ##### 3. water
 usneaAurWater00 <- lm(aCorrected ~ weight, data = usneaAurDf)
 
-plot(usneaAurWater00)                                                            # not normal
-shapiro.test(resid(usneaAurWater00))                                             # confirms not normal
+plot(usneaAurWater00)                                                          # not normal
+shapiro.test(resid(usneaAurWater00))                                           # confirms not normal
 
 
 ### b. boxcox transformation
@@ -901,6 +902,60 @@ usneaAurMod03 <- lm(aCorrectedBox2 ~ log(parweatherstation) * log(tempWS),
 plot(usneaAurMod03)                                                            # looks wonky still
 shapiro.test(resid(usneaAurMod03))                                             # normal 
 summary(usneaAurMod03)   
+
+
+
+## 5. sanionia
+
+#### i. light, temp, water with interaction
+sanioniaMod00 <- lm(aCorrected ~ parweatherstation * tempWS * weight, 
+                    data = sanioniaDf)
+
+plot(sanioniaMod00)                                                            # not normal
+shapiro.test(resid(sanioniaMod00))                                             # says normal but I think log transform
+summary(sanioniaMod00)                                                         # no effects (0.58 - 0.84)
+
+
+#### ii. individual factors
+
+##### 1. light
+sanioniaLight00 <- lm(aCorrected ~ parweatherstation, data = sanioniaDf)
+
+plot(sanioniaLight00)                                                          # not too bad
+shapiro.test(resid(sanioniaLight00))                                           # normal
+summary(sanioniaLight00)                                                       # no effect
+
+
+##### 2. temperature
+sanioniaTemp00 <- lm(aCorrected ~ tempWS, data = sanioniaDf)
+
+plot(sanioniaTemp00)                                                           # fairly normal mostly
+shapiro.test(resid(sanioniaTemp00))                                            # normal
+summary(sanioniaTemp00)                                                        # no effect
+
+
+##### 3. water
+sanioniaWater00 <- lm(aCorrected ~ log(weight), data = sanioniaDf)
+
+plot(sanioniaWater00)                                                          # not normal (even w log transformation)
+shapiro.test(resid(sanioniaWater00))                                           # says normal but def not
+summary(sanioniaWater00)                                                       # positive effect but definitely not normal residuals
+
+
+### b. boxcox transformation
+
+#### i. adding constant to remove negative aCorrected values
+range(sanioniaDf$aCorrected)                                                   # min aCorrected is -40.8
+
+sanioniaDf <- sanioniaDf %>% 
+  mutate(aCorrectedBox = aCorrected + 41)
+
+
+#### ii. determining best transformation
+sanioniaTrans <- boxcox(lm(aCorrectedBox ~ 1, data = sanioniaDf))
+
+sanioniaTrans$x[which.max(sanioniaTrans$y)]                                    # suggests no transformation
+
 
 # bayes experimentation ----
 ## brms intro document: vignette("brms_overview")
@@ -1142,3 +1197,44 @@ summary(andreaeaBayesWater)
     labs(x = "\nweight", y = "a_corrected\n") +
     theme_classic())
 
+## 6. sanionia
+
+### a. interaction
+sanioniaBayes00 <- brms::brm(aCorrected ~ parweatherstation * tempWS * weight, 
+                             data = sanioniaDf, family = gaussian(), chains = 4, 
+                             iter = 5000, warmup = 1000)                       # lots of warnings, inc chains and iter
+
+pp_check(sanioniaBayes00)                                                      
+plot(sanioniaBayes00)                                                          # not god awful
+
+# *** here ****
+### b. no interaction
+
+#### i. light
+sanioniaBayesLight <- brms::brm(aCorrected ~ parweatherstation, 
+                                data = sanioniaDf, family = gaussian(), 
+                                chains = 3, iter = 3000, warmup = 1000)
+
+pp_check(sanioniaBayesLight)
+plot(sanioniaBayesLight)                                                       # looks ok?                                                              
+summary(sanioniaBayesLight)                                                    # no effect
+
+
+#### ii. temperature
+sanioniaBayesTemp <- brms::brm(aCorrected ~ tempWS, data = sanioniaDf, 
+                               family = gaussian(), chains = 3, iter = 3000, 
+                               warmup = 1000)
+
+pp_check(sanioniaBayesTemp)
+plot(sanioniaBayesTemp)                                                        # looks good                                                              
+summary(sanioniaBayesTemp)                                                     # no effect
+
+
+#### iii. water
+sanioniaBayesWater <- brms::brm(aCorrected ~ weight, data = sanioniaDf, 
+                                family = gaussian(), chains = 3, iter = 3000, 
+                                warmup = 1000)
+
+pp_check(sanioniaBayesWater)
+plot(sanioniaBayesWater)                                                       # looks good                                                              
+summary(sanioniaBayesWater)                                                    # positive effect
