@@ -19,6 +19,7 @@ library(brms)
 library(tidybayes)
 library(MASS)
 library(corrplot)
+library(MuMIn)
 
 
 # loading data ----
@@ -337,58 +338,20 @@ all00 <- bind_rows(andreaeaDf, chorisodontiumDf, himantormiaDf, polytrichumDf,
 ### View(all00)
 
 
-### b. mosses only
-moss00 <- bind_rows(andreaeaDf, chorisodontiumDf, polytrichumDf, sanioniaDf)   
-### View(moss00)
-
-
-### c. lichens only
-lichen00 <- bind_rows(himantormiaDf, stereocaulonDf, usneaAntDf, usneaAurDf)   
-### View(lichen00)
-
-
 
 # data checks ----
 
 ## 1. collinearity
 
 ### a. all data
-pairs(all_00[, c("parweatherstation", "temp_ws", "weight")])                   # seems like par and temp may be related
+cor.test(all00$partop, all00$tempWS)                                           # 0.36
+cor.test(all00$partop, all00$weight)                                           # -0.02
+cor.test(all00$tempWS, all00$weight)                                           # -0.003
 
 
-### b. just lichens
-pairs(lichen_00[, c("parweatherstation", "temp_ws", "weight")])
+## 2. distribution of response variable (aCorrected)
 
-
-### c. just mosses
-pairs(moss_00[, c("parweatherstation", "temp_ws", "weight")])
-
-
-### d. trying corrplot method
-all_01 <- all_00 %>% 
-  dplyr::select_if(is.numeric)                                                 # selecting numeric data only
-
-corrplot(cor(all_01, use = "everything"),                                      # isn't showing par numbers
-         method = "number", type = "upper")
-
-
-### e. just using a linear regression for now
-collinear <- lm(parweatherstation ~ temp_ws, data = all_00)
-
-summary(collinear)                                                             # par and temp are significantly related
-
-
-
-## 2. distribution of response variable (a_corrected)
-
-### a. overall
-ggplot(all_00, aes(x = a_corrected)) +
-  geom_histogram(bins = 20) +
-  theme_classic()
-
-
-### b. by species
-ggplot(all_00, aes(x = a_corrected)) +
+ggplot(all00, aes(x = aCorrected)) +
   facet_wrap(~ species, nrow = 4, ncol = 2, scales = "free") +
   geom_histogram(bins = 15) +
   theme_classic()
@@ -398,14 +361,13 @@ ggplot(all_00, aes(x = a_corrected)) +
 # plotting raw data ----
 
 ## 1. light
-### a. check partop or parweatherstation
 ggplot(all00, aes(x = partop, y = aCorrected, color = species)) +
   facet_wrap(~ species, nrow = 4, ncol = 2, scales = "free") +
   geom_point(show.legend = FALSE) +
   geom_hline(yintercept = 0, color = "red") +
   geom_smooth(show.legend = FALSE) +
   theme_classic()
-View(all00)
+
 
 ## 2. temperature (weather station)
 ggplot(all00, aes(x = tempWS, y = aCorrected, color = species)) +
@@ -426,25 +388,37 @@ ggplot(all00, aes(x = weight, y = aCorrected, color = species)) +
 
 
 
-# frequentist modelling approach ----
+# frequentist ----
 
 ## 1. himantormia
 
 ### a. standard lm
 
 #### i. light, temp, water with interaction
-himantormiaMod00 <- lm(aCorrected ~ parweatherstation * tempWS * weight, 
+himantormiaMod00 <- lm(aCorrected ~ partop * tempWS * weight, data = himantormiaDf)
+
+plot(himantormiaMod00)                                                         # looks okay--check 8, 13, and 2
+shapiro.test(resid(himantormiaMod00))                                          # says normal
+summary(himantormiaMod00)                                                      # sig effect of partop, partop:weight, partop:tempWS:weight
+
+##### 1. simplification
+himantormiaMod01 <- lm(aCorrected ~ partop + tempWS + weight + partop:tempWS + 
+                         partop:weight + partop:tempWS:weight, 
                        data = himantormiaDf)
 
-plot(himantormiaMod00)                                                         # doesn't look super normal
-shapiro.test(resid(himantormiaMod00))                                          # says normal
-summary(himantormiaMod00)                                                      # no sig results (0.052 - 0.29)
+plot(himantormiaMod01)                                                         # doesn't look super normal
+shapiro.test(resid(himantormiaMod01))                                          # says normal
+summary(himantormiaMod01)                                                      # no sig results
 
+##### 2. model comparison
+himantormiaNull <- lm(aCorrected ~ 1, data = himantormiaDf)
+
+AIC(himantormiaNull, himantormiaMod00, himantormiaMod01)                       # suggested himantormia00 is best fit
 
 #### ii. individual factors
 
 ##### 1. light
-himantormiaLight00 <- lm(aCorrected ~ parweatherstation, data = himantormiaDf)
+himantormiaLight00 <- lm(aCorrected ~ partop, data = himantormiaDf)
 
 plot(himantormiaLight00)                                                       # not normal
 shapiro.test(resid(himantormiaLight00))                                        # confirms not normal
@@ -495,7 +469,7 @@ ggplot(himantormiaDf, aes(x = parweatherstation, y = aCorrectedBox)) +
 
 
 ###### b. transformed
-ggplot(himantormiaDf, aes(x = parweatherstation, y = aCorrectedBox2)) +
+ggplot(himantormiaDf, aes(x = partop, y = aCorrectedBox2)) +
   geom_point() +
   ylim(-1.5, 0.5) +
   geom_hline(yintercept = 0)                                                   # seems like its worked
@@ -504,18 +478,22 @@ ggplot(himantormiaDf, aes(x = parweatherstation, y = aCorrectedBox2)) +
 ### c. retrying lm with log transformed aCorrected
 
 #### i. light, temp, water with interaction just for kicks
-himantormiaMod01 <- lm(aCorrectedBox2 ~ parweatherstation * tempWS * weight, 
+himantormiaMod02 <- lm(aCorrectedBox2 ~ partop * tempWS * weight, 
                     data = himantormiaDf)
 
-plot(himantormiaMod01)                                                         # normal, looks slightly better than non-logged
-shapiro.test(resid(himantormiaMod01))                                          # confirms still normal
-summary(himantormiaMod01)
+plot(himantormiaMod02)                                                         # normal, looks slightly better than non-logged
+shapiro.test(resid(himantormiaMod02))                                          # confirms still normal
+summary(himantormiaMod02)
+
+AIC(himantormiaNull, himantormiaMod00, himantormiaMod01, himantormiaMod02)     # warning is just bc null has more datapoints due to WS
+                                                                               # points to mod2
+                                                                               # but has lower r2?
 
 
 #### ii. individual factors
 
 ##### 1. light
-himantormiaLight01 <- lm(aCorrectedBox2 ~ parweatherstation, data = himantormiaDf)
+himantormiaLight01 <- lm(aCorrectedBox2 ~ partop, data = himantormiaDf)
 
 plot(himantormiaLight01)                                                       # normal, bit wonky
 shapiro.test(resid(himantormiaLight01))                                        # confirms normal
@@ -534,8 +512,10 @@ summary(himantormiaTemp01)                                                     #
 ## 2. stereocaulon
 
 #### i. light, temp, water with interaction
-stereocaulonMod00 <- lm(aCorrected ~ parweatherstation * tempWS * weight, 
+stereocaulonMod00 <- lm(aCorrected ~ parweatherstation + tempWS + weight + tempWS:weight, 
                         data = stereocaulonDf)
+
+range(stereocaulonDf$aCorrected)
 
 plot(stereocaulonMod00)                                                        # doesn't look particularly normal
 shapiro.test(resid(stereocaulonMod00))                                         # says it's normal
@@ -908,13 +888,28 @@ summary(usneaAurMod03)
 ## 5. sanionia
 
 #### i. light, temp, water with interaction
-sanioniaMod00 <- lm(aCorrected ~ parweatherstation * tempWS * weight, 
+sanioniaMod00 <- lm(aCorrected ~ partop * tempWS * weight, 
                     data = sanioniaDf)
 
-plot(sanioniaMod00)                                                            # not normal
-shapiro.test(resid(sanioniaMod00))                                             # says normal but I think log transform
+plot(sanioniaMod00)                                                            # most not bad
 summary(sanioniaMod00)                                                         # no effects (0.58 - 0.84)
 
+sanioniaMod01 <- lm(aCorrected ~ partop + tempWS + weight + partop:tempWS + partop:weight + tempWS:weight, 
+                    data = sanioniaDf)
+plot(sanioniaMod01)
+summary(sanioniaMod01)
+
+sanioniaMod02 <- lm(aCorrected ~ partop + tempWS + weight + partop:weight + tempWS:weight, 
+                    data = sanioniaDf)
+plot(sanioniaMod02)
+summary(sanioniaMod02)
+
+sanioniaNull <- lm(aCorrected ~ 1, data = sanioniaDf)
+
+AICc(sanioniaNull, sanioniaMod00, sanioniaMod01, sanioniaMod02)
+
+ggplot(sanioniaDf, aes(x = weight, y = aCorrected)) +
+  geom_point()                                                                # figure out how to add in modeled line
 
 #### ii. individual factors
 
@@ -1200,14 +1195,24 @@ summary(andreaeaBayesWater)
 ## 6. sanionia
 
 ### a. interaction
-sanioniaBayes00 <- brms::brm(aCorrected ~ parweatherstation * tempWS * weight, 
+sanioniaBayes00 <- brms::brm(aCorrected ~ partop * tempWS * weight, 
                              data = sanioniaDf, family = gaussian(), chains = 4, 
                              iter = 5000, warmup = 1000)                       # lots of warnings, inc chains and iter
 
 pp_check(sanioniaBayes00)                                                      
 plot(sanioniaBayes00)                                                          # not god awful
 
-# *** here ****
+
+
+
+sanioniaBayes01 <- brms::brm(aCorrected ~ partop + tempWS + weight + partop:weight + tempWS:weight, 
+                             data = sanioniaDf, family = gaussian(), chains = 4, 
+                             iter = 5000, warmup = 1000)                       # no warnings !
+
+pp_check(sanioniaBayes01)                                                       
+plot(sanioniaBayes01)                                                          # alll goooodd
+summary(sanioniaBayes01)                                                       # effect of light, weight, partop:weight
+
 ### b. no interaction
 
 #### i. light
