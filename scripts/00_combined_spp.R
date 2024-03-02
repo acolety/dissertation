@@ -4,7 +4,7 @@
 # MOSSES: Andreaea, chorisodontium, polytrichum, sanionia
 # LICHENS: himantormia, stereocaulon, usnea ant, usnea aur
 
-### TO DO: data tranformations (could try scaling), collinearity troubleshooting, determine best family for bayes,
+### TO DO: determine best family for bayes,
 ### Mann Whitney U for non-normal data?
 
 ### approaches to data transformations:
