@@ -1,6 +1,6 @@
 # sanionia sample 3 lab data
 
-# to do: weight not binding bc of different lengths
+# to do: 
 
 # libraries ----
 library(tidyverse)
@@ -24,14 +24,12 @@ sanioniaLab <- list.files(path = ".\\data\\lab", full.names = TRUE) %>%
 View(sanioniaLab)
 
 # cleaning and combining data ----
-colnames(sanioniaLab) <- make.names(colnames(sanioniaLab),unique = TRUE)
+colnames(sanioniaLab) <- make.names(colnames(sanioniaLab), unique = TRUE)
 
 colnames(sanioniaLab) <- tolower(colnames(sanioniaLab))
 
-view(sanioniaLab)
-
 sanioniaLab <- sanioniaLab %>% 
-  mutate(co2abs = as.numeric(co2abs), co2buf = as.numeric(co2buf),             # updating variable types
+  mutate(area = as.numeric(area), co2abs = as.numeric(co2abs), co2buf = as.numeric(co2buf),             # updating variable types
          dco2zp = as.numeric(dco2zp), dco2mp = as.numeric(dco2mp), 
          h2oabs = as.numeric(h2oabs), h2obuf = as.numeric(h2obuf),
          dh2ozp = as.numeric(dh2ozp), dh2omp = as.numeric(dh2omp),
@@ -44,57 +42,72 @@ sanioniaLab <- sanioniaLab %>%
          object = as.factor(object), 
          inside.fan = as.factor(inside.fan))
 
-sanioniaLab <- bind_cols(sanioniaLab, weights$weight) %>%                            # adding weights
+sanioniaLab <- bind_cols(sanioniaLab, weights$weight) %>%                      # adding weights
   rename(weight = ...41)
 
+
+view(sanioniaLab)
 skim(sanioniaLab)
 
 
 ## making light curve and water curve datasets
 
-water <- sanionia %>% 
-  slice(1:66)
+### creating column with temperature category to make filtering easier
+sanioniaLab <- sanioniaLab %>% 
+  mutate(tempCat = case_when(tcuv < 6 ~ 5,
+                             tcuv > 9 & tcuv < 11 ~ 10,
+                             tcuv > 14 & tcuv < 16 ~ 15, 
+                             tcuv > 19 & tcuv < 21 ~ 20,
+                             tcuv > 21 ~ 25)) %>% 
+  mutate(tempCat = as.factor(tempCat))
 
-light <- sanionia %>% 
-  slice(67:96)
-
-photosynthesis <- water %>% 
-  filter(dco2mp <0)
-
-respiration <- water %>% 
-  filter(dco2mp > 0)
+view(sanioniaLab)
 
 
-ggplot(light, aes(x = partop, y = dco2mp)) +
+hist(sanioniaLab$a)                                                    # normal
+
+### moisture curves
+WC <- sanioniaLab %>% 
+  filter(partop < 600 & !between(partop, 5, 490) & !tempCat == 25)
+
+WCphotosynth <- WC %>% 
+  filter(partop > 5)
+
+WCresp <- sanioniaLab %>% 
+  filter(partop < 5 & !tempCat == 25)
+
+ggplot(WCphotosynth, aes(x = weight, y = a, color = partop)) +
+  geom_point() +
+  facet_wrap(WCphotosynth$tempCat) +
+  geom_smooth() +
+  theme_classic()
+
+ggplot(WCresp, aes(x = weight, y = a, color = partop)) +
+  geom_point() +
+  facet_wrap(WCresp$tempCat) +
+  geom_smooth() +
+  theme_classic()
+
+
+### light curve
+LC <- sanioniaLab %>% 
+  filter(between(weight, 55, 62))
+
+ggplot(LC, aes(x = partop, y = a, color = tempCat)) +                         # missing points for some reason
   geom_point() +
   theme_classic()
 
-hist(photosynthesis$dco2mp)                                                    # normal
 
-# visualizing ----
-ggplot(water, aes(x = weight, y = dco2mp)) +
+### temperature curve
+TC <- sanioniaLab %>% 
+  filter(between(weight, 55, 62) & between(partop, 500, 600))
+  
+
+ggplot(TC, aes(x = tempCat, y = a, color = weight)) +                      
   geom_point() +
   theme_classic()
 
-# basic models  ----
 
-## this sucks and doesn't work idk
-photoBayes00 <- brms::brm(bf(dco2mp ~ (b0(weight^2) + b1(weight) + b2), nl = TRUE, b0 + b1 + b2 ~ 1), data = photosynthesis)
-
-
-brm(bf(y ~ b1 * exp(b2 * x), b1 + b2 ~ 1, nl = TRUE), data = dat1)
-
-
-
-pp_check(photoBayes00)
-plot(photoBayes00)
-summary(photoBayes00)
-
-(photosynthesis %>% 
-  add_predicted_draws(photoBayes00) %>% 
-  ggplot(aes(x = weight, y = dco2mp)) +
-  stat_lineribbon(aes(y = .prediction), .width = c(.95, .80, .50),
-                  alpha = 0.5, color = "black") +
-  geom_point(data = photosynthesis) +
-  scale_fill_brewer(palette = "Greys") +
-  theme_classic())
+# models  ----
+summary(lm(a ~ partop * tcuv * weight, data = sanioniaLab))
+summary(lm(a ~ partop, data = ))

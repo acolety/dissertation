@@ -23,28 +23,28 @@ library(MuMIn)
 
 
 # loading data ----
-andreaeaDf <- read.csv("data\\andreaea.csv") %>% 
+andreaeaDf <- read.csv("data\\field\\andreaea.csv") %>% 
     filter(!row_number() == 1)                                                 # removing row with units
 
-chorisodontiumDf <- read.csv("data\\chorisodontium.csv") %>% 
+chorisodontiumDf <- read.csv("data\\field\\chorisodontium.csv") %>% 
   filter(!row_number() == 1)
 
-himantormiaDf <- read.csv("data\\himantormia.csv") %>% 
+himantormiaDf <- read.csv("data\\field\\himantormia.csv") %>% 
   filter(!row_number() == 1)
 
-polytrichumDf <- read.csv("data\\polytrichum_strictum.csv") %>% 
+polytrichumDf <- read.csv("data\\field\\polytrichumStrictum.csv") %>% 
   filter(!row_number() == 1)
 
-sanioniaDf <- read.csv("data\\sanionia.csv") %>% 
+sanioniaDf <- read.csv("data\\field\\sanionia.csv") %>% 
   filter(!row_number() == 1)
 
-stereocaulonDf <- read.csv("data\\stereocaulon.csv") %>% 
+stereocaulonDf <- read.csv("data\\field\\stereocaulon.csv") %>% 
   filter(!row_number() == 1)
 
-usneaAntDf <- read.csv("data\\usnea_antarctica.csv") %>% 
+usneaAntDf <- read.csv("data\\field\\usneaAntarctica.csv") %>% 
   filter(!row_number() == 1)
 
-usneaAurDf <- read.csv("data\\usnea_aurantiaco-atra.csv") %>% 
+usneaAurDf <- read.csv("data\\field\\usneaAurantiacoAtra.csv") %>% 
   filter(!row_number() == 1)
 
 
@@ -104,10 +104,13 @@ andreaeaDf <- andreaeaDf %>%
          weight = as.numeric(weight), wetnessWS = as.numeric(wetnessWS),
          tempWS = as.numeric(tempWS), rhWS = as.numeric(rhWS), 
          windspeedWS = as.numeric(windspeedWS), object = as.factor(object), 
-         inside.fan = as.factor(inside.fan)) %>% 
-  mutate(aCorrected = (a / 8) * area)                                          # correcting 'a' with spp. areas
+         inside.fan = as.factor(inside.fan)) # %>% 
+  mutate(aCorrected = (a * 0.008) * area)                                          # this isn't the right transformation
 
-
+andreaeaDf <- andreaeaDf %>% 
+  mutate(eCorrected = ((e * 0.008) / area)) %>% 
+  mutate(aCorrected = ((flow * (dco2mp - dco2zp)) / 8) - (e * ca))
+  
 ### b. chorisodontium
 chorisodontiumDf <- chorisodontiumDf %>% 
   mutate(species = "chorisodontium",                                           # adding spp column
