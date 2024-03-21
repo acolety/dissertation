@@ -364,6 +364,7 @@ ggplot(all00, aes(x = aCorrected)) +
 # plotting raw data ----
 
 ## 1. light
+
 ggplot(all00, aes(x = partop, y = aCorrected, color = species)) +
   facet_wrap(~ species, nrow = 4, ncol = 2, scales = "free") +
   geom_point(show.legend = FALSE) +
