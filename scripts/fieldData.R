@@ -1,7 +1,7 @@
 # analysis of field data
 # 8 March 2024
 
-# TO DO: models for enviro conditions, make sure basket weight subtracted
+# TO DO: 
 
 # libraries ----
 library(tidyverse)
@@ -10,6 +10,29 @@ library(skimr)
 library(scatterplot3d)
 library(broom)
 library(nlstools)
+library(patchwork)
+
+# FUNCTIONS AND DESIGN ----
+## theme for plots
+theme_cust <- function(){            
+  theme_classic() +                          
+    theme(axis.ticks.length = unit(-0.2, "cm"),
+          axis.text.x = element_text(size = 12),       
+          axis.text.y = element_text(size = 12),
+          axis.title = element_text(size = 14),
+          panel.grid = element_blank(),
+          plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), units = "cm"),
+          legend.text = element_text(size = 12),
+          legend.title = element_text(size = 10),
+          legend.position = c(0.12, 0.9),
+          legend.margin = margin(6, 6, 6, 6),
+          legend.box.background = element_rect(size = 1.1))
+}
+
+## color palette
+
+temp.palette <- c("#084c61", "#1fbbcc", "#ffbe38", "#db3a34", "#323031")
+
 
 # loading data ----
 fieldData <- list.files(path = ".\\data\\field", full.names = TRUE) %>% 
@@ -100,6 +123,8 @@ fieldData <- fieldData %>%
   mutate(waterContent = ((sampleWeight - dryWeight) / dryWeight) * 100) %>%         # content as a percent of dry weight
   mutate(waterContentmm = ((sampleWeight - dryWeight) * 1000) / (area * 100)) %>%       # p sure this is good but double check           
   mutate(relativeWC = sampleWeight / saturatedWeight)                            # some RWC > 100, perhaps oversaturated as samples not shaken in field before measuring
+
+write.csv(fieldData, file = "data\\originalData\\field_data_corrected.csv")
 
 ## dataset for each species
 andreaea <- fieldData %>% 
@@ -325,7 +350,7 @@ fieldData %>%
 
 view(partopModels)
 
-# SANIONIA
+# SANIONIA ----
 ## linear models
 sanioniaPARlm <- fieldData %>% 
   filter(species == "sanionia", waterContent > 60) %>% 
@@ -345,7 +370,7 @@ fieldData %>%
 ### A ~ light
 LCSan <- fieldData %>% 
   filter(species == "sanionia", 
-         waterContent > 60,
+         waterContent > 90,
          between(tempWS, 3, 6))
 
 ggplot(LCSan, aes(x = partop, y = aCorrected, color = tempWS)) +   
@@ -359,35 +384,39 @@ overview(sanLC)
 
 (LCSanPlot <- ggplot(LCSan, aes(x = partop, y = aCorrected)) +
     geom_point(pch = 1) + 
+    geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4) +
+    xlab(expression("PPFD ( "*mu*~mol~m^-2~s^-1*")")) +
+    ylab(expression("Net photosynthetic rate ( "*mu*~mol~m^-2~s^-1*")")) +
     geom_function(fun = function(x) 
-      3.6479 + (0.3799 - 3.6479) 
-      * exp(-exp(-5.5157) * x), color = "red") +
-    theme_classic())
+      3.6479 + (0.3799 - 3.6479) * exp(-exp(-5.5157) * x)) +
+    theme_cust())
 
-### A ~ light, combined field and lab data
-(LCSanPlotCombo <- ggplot(NULL, aes(x = partop, y = aCorrected)) +
-    geom_point(data = LCSan, aes(x = partop, y = aCorrected)) + 
-    geom_point(data = LC, aes(x = partop, y = a)) +
-     geom_function(fun = function(x) 
-     3.6479 + (0.3799 - 3.6479) 
-      * exp(-exp(-5.5157) * x), color = "red") +
-    theme_classic())
+ggsave("img\\field_light.png", plot = LCSanPlot, width = 8, height = 8)
+
+
 
 ### a ~ water content
 WCSan <- fieldData %>% 
   filter(species == "sanionia", 
-         between(tempWS, 3, 6))
+         between(tempWS, 3, 6),
+         between(partop, 500, 1700))
 
 sanWC <- lm(aCorrected ~ poly(waterContent, degree = 2, raw = TRUE), data = WCSan)
 plot(sanWC)
 summary(sanWC)
 
-(sanWCPlot <- ggplot(WCSan, aes(x = waterContent, y = aCorrected, color = partop)) +
-    geom_point() +
+(sanWCPlot <- ggplot(WCSan, aes(x = waterContent, y = aCorrected)) +
+    geom_point(pch = 1) +
+    geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4) +
+    labs(x = "Water content (%)",
+         y = expression("Net photosynthetic rate ( "*mu*~mol~m^-2~s^-1*")"),
+         color = "PPFD") +
     geom_function(fun = function(x)                                              # t = 5
-      -1.1e+01 + 1.172e-01 * x 
-      + -2.101e-04 * x^2, color = "red") +
-    theme_classic())
+      -1.419e+01 + 1.484e-01 * x 
+      + -2.762e-04 * x^2) +
+    theme_cust())
+
+ggsave("img\\field_water.png", plot = sanWCPlot, width = 8, height = 8)
 
 
 ### controlling partop to be above light sat
@@ -407,32 +436,51 @@ summary(sanWC2)
       + 2.745e-05 * x^2, color = "red") +
     theme_classic())
 
+
 ### plotting factors through time
 ## A ~ time
-ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = aCorrected)) +
-  labs(x = "Days") +
-  geom_point() +
-  geom_line() +
-  geom_hline(yintercept = 0, color = "red") +
-  theme_classic()
+(timeNP <- ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = aCorrected)) +
+              scale_x_continuous(expand = c(0, 0), limits = c(0, 42)) +
+              xlab("Days") +
+              ylab(expression("Net photosynthetic rate ( "*mu*~mol~m^-2~s^-1*")")) +
+              geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4) +
+              geom_point() +
+              geom_line() +
+              theme_cust())
 
 ## WC ~ time
-ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = waterContent)) +
-  labs(x = "Days") +
-  geom_point() +
-  geom_line() +
-  theme_classic()
+(timeWC <- ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = waterContent)) +
+            labs(x = NULL, y = "Water content(%)") +
+            scale_x_continuous(expand = c(0, 0), limits = c(0, 42)) +
+            annotate("rect", xmin = 0, xmax = 42, ymin = 90, ymax = 130,
+                     alpha = .1) +
+            geom_point() +
+            geom_line() +
+            theme_cust() +
+            theme(axis.text.x = element_blank()))
 
 ## tempWS ~ time
-ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = tempWS)) +
-  labs(x = "Days") +
-  geom_point() +
-  geom_line() +
-  theme_classic()
+(timeTemp <- ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = tempWS)) +
+              labs(x = NULL, y = "Temperature (°C)") +
+              scale_x_continuous(expand = c(0, 0), limits = c(0, 42)) +
+              ylim(2, 6.2) +
+              geom_point() +
+              geom_line() +
+              theme_cust() +
+              theme(axis.text.x = element_blank()))
 
 ## partop ~ time
-ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = partop)) +
-  labs(x = "Days") +
-  geom_point() +
-  geom_line() +
-  theme_classic()
+(timePAR <- ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = partop)) +
+             xlab(NULL) +
+             ylab(expression("PPFD ( "*mu*~mol~m^-2~s^-1*")")) +
+             geom_hline(yintercept = 480, alpha = 0.6, lty = "dotted") +  # light sat point from lab
+             scale_x_continuous(expand = c(0, 0), limits = c(0, 42)) +
+             geom_point() +
+             geom_line() +
+             theme_cust() +
+             theme(axis.text.x = element_blank()))
+
+## arranging together
+environment <- timePAR / timeTemp / timeWC / timeNP
+
+ggsave("img\\enviro.png", plot = environment, width = 14, height = 16)
