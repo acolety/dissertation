@@ -20,13 +20,13 @@ library(scatterplot3d)
 theme_cust <- function(){            
   theme_classic() +                          
     theme(axis.ticks.length = unit(-0.2, "cm"),
-          axis.text.x = element_text(size = 12),       
-          axis.text.y = element_text(size = 12),
-          axis.title = element_text(size = 14),
+          axis.text.x = element_text(size = 18),       
+          axis.text.y = element_text(size =18),
+          axis.title = element_text(size = 24),
           panel.grid = element_blank(),
           plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), units = "cm"),
-          legend.text = element_text(size = 12),
-          legend.title = element_text(size = 10),
+          legend.text = element_text(size = 18),
+          legend.title = element_text(size = 18),
           legend.position = c(0.12, 0.9),
           legend.margin = margin(6, 6, 6, 6),
           legend.box.background = element_rect(size = 1.1))
@@ -131,7 +131,7 @@ ggplot(WC, aes(x = waterContent, y = a, color = tempCat, shape = parCat)) +
 
 ### light curve subset and raw data vis
 LC <- sanioniaLab %>% 
-  filter(between(waterContent, 90, 130) & !tempCat == 25)                       
+  filter(between(waterContent, 93, 138) & !tempCat == 25)                       
 
 ggplot(LC, aes(x = partop, y = a, color = tempCat)) +   
   geom_point() +
@@ -143,7 +143,7 @@ ggplot(LC, aes(x = partop, y = a, color = tempCat)) +
 
 ### temperature curve subset and raw data vis
 TC <- sanioniaLab %>%                                                          # temperature:par interaction data
-  filter(between(waterContent, 90, 130) & !tempCat == 25)
+  filter(between(waterContent, 93, 138) & !tempCat == 25)
 
 # TCW <- sanioniaLab %>%                                                         # temperature:WC interaction data
 #   filter(!tempCat == 25) %>% 
@@ -169,6 +169,19 @@ LCRegressions <- LC %>%
 
 View(LCRegressions)
 
+## have to make indv dataframes anyway :/
+LC5dat <- LC %>% 
+  filter(tempCat == 5)
+
+LC10dat <- LC %>% 
+  filter(tempCat == 10)
+
+LC15dat <- LC %>% 
+  filter(tempCat == 15)
+
+LC20dat <- LC %>% 
+  filter(tempCat == 20)
+
 #### individual models to assess
 LC5 <- LC %>% 
   filter(tempCat == 5) %>% 
@@ -177,12 +190,20 @@ summary(LC5)
 plot(nlsResiduals(LC5))
 overview(LC5)                                                                 # find a way to assess goodness of fit
 
+##### pseudo R2
+1 - ((sum(residuals(LC5)^2)) / (sum((LC5dat$a - mean(LC5dat$a))^2)))
+
+
 LC10 <-  LC %>% 
   filter(tempCat == 10) %>% 
   nls(a ~ SSasymp(partop, Asym, R0, lrc), data = .)
 summary(LC10)
 plot(nlsResiduals(LC10))
 overview(LC10)
+
+##### pseudo R2
+1 - ((sum(residuals(LC10)^2)) / (sum((LC10dat$a - mean(LC10dat$a))^2)))
+
 
 LC15 <- LC %>% 
   filter(tempCat == 15) %>% 
@@ -191,12 +212,20 @@ summary(LC15)
 plot(nlsResiduals(LC15))
 overview(LC15)
 
+##### pseudo R2
+1 - ((sum(residuals(LC15)^2)) / (sum((LC15dat$a - mean(LC15dat$a))^2)))
+
+
 LC20 <-  LC %>% 
   filter(tempCat == 20) %>% 
   nls(a ~ SSasymp(partop, Asym, R0, lrc), data = .)
 summary(LC20)
 plot(nlsResiduals(LC20))
 overview(LC20)
+
+##### pseudo R2
+1 - ((sum(residuals(LC20)^2)) / (sum((LC20dat$a - mean(LC20dat$a))^2)))
+
 
 ## solving for light compensation points
 
@@ -285,26 +314,59 @@ plot(WC20)
 summary(WC20)
 
 
-
 ### finding WCopt for each temperature
 optimize(function(x)                                                           # t = 5
   WCPRegressions$estimate[1] + WCPRegressions$estimate[2] * x 
  + WCPRegressions$estimate[3] * x^2, c(80, 160), maximum = T)                  # 108.74, 2.447
 
+uniroot.all(function(x)                                                       
+  (WCPRegressions$estimate[1] + WCPRegressions$estimate[2] * x 
+  + WCPRegressions$estimate[3] * x^2) - (0.9 * 2.447388), c(0, 200))          # 92.02337 125.44982
+
+
 optimize(function(x)                                                           # t = 10
   WCPRegressions$estimate[4] + WCPRegressions$estimate[5] * x 
   + WCPRegressions$estimate[6] * x^2, c(80, 160), maximum = T)                 # 118.693, 2.940 
+
+uniroot.all(function(x)                                                       
+  (WCPRegressions$estimate[4] + WCPRegressions$estimate[5] * x 
+   + WCPRegressions$estimate[6] * x^2) - (0.9 * 2.939508), c(0, 200))         # 99.65919 137.72717
+
 
 optimize(function(x)                                                           # t = 15
   WCPRegressions$estimate[7] + WCPRegressions$estimate[8] * x 
   + WCPRegressions$estimate[9] * x^2, c(80, 160), maximum = T)                 #  110.781, 2.322
 
+uniroot.all(function(x)                                                       
+  (WCPRegressions$estimate[7] + WCPRegressions$estimate[8] * x 
+   + WCPRegressions$estimate[9] * x^2) - (0.9 * 2.322397), c(0, 200))         # 94.68398 126.87784
+
+
 optimize(function(x)                                                           # t = 20
   WCPRegressions$estimate[10] + WCPRegressions$estimate[11] * x 
   + WCPRegressions$estimate[12] * x^2, c(80, 160), maximum = T)                # 107.741, 2.131
 
+uniroot.all(function(x)                                                       
+  (WCPRegressions$estimate[10] + WCPRegressions$estimate[11] * x 
+   + WCPRegressions$estimate[12] * x^2) - (0.9 * 2.131495), c(0, 200))         # 92.76788 122.71342
 
 
+
+### finding point below which is water limited
+uniroot(function(x) WCPRegressions$estimate[1] + WCPRegressions$estimate[2] * x  # t = 5, 55.88 
+          + WCPRegressions$estimate[3] * x^2, interval = c(0, 100))
+
+uniroot(function(x)                                                           # t = 10, 58.50
+  WCPRegressions$estimate[4] + WCPRegressions$estimate[5] * x 
+  + WCPRegressions$estimate[6] * x^2, interval = c(0, 100))
+
+uniroot(function(x)                                                           # t = 15, 59.88
+  WCPRegressions$estimate[7] + WCPRegressions$estimate[8] * x 
+  + WCPRegressions$estimate[9] * x^2, interval = c(0, 100))
+
+uniroot(function(x)                                                           # t = 20, 60.39
+  WCPRegressions$estimate[10] + WCPRegressions$estimate[11] * x 
+  + WCPRegressions$estimate[12] * x^2, interval = c(0, 100))
 
 ### WC respiration
 WCresp <- sanioniaLab %>% 
@@ -476,30 +538,30 @@ PARavg <- LC %>%
   mutate(partop = as.numeric(parCat)) %>% 
   distinct(partop, tempCat, regressionA, stdev)
 
-(parTempPlot <- ggplot(PARavg, aes(x = partop, y = regressionA, color = tempCat)) +
+(parTempPlot <- ggplot(LC, aes(x = partop, y = a, color = tempCat)) +
     scale_color_manual(values = temp.palette) +
     ylim(-3, 4) +
     geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4) +
-    xlab(expression("PPFD ("*mu*~mol~m^-2~s^-1*")")) + 
-    ylab(expression("Net photosynthetic rate ( "*mu*~mol~m^-2~s^-1*")"))  +
+    xlab(expression("PPFD ("*mu*mol~m^-2~s^-1*")")) + 
+    ylab(expression("Net photosynthetic rate ("*mu*mol~m^-2~s^-1*")"))  +
     labs(color = "Temperature (°C)") +
     geom_function(fun = function(x) 
       LCRegressions$estimate[1] + (LCRegressions$estimate[2] - LCRegressions$estimate[1]) 
-      * exp(-exp(LCRegressions$estimate[3]) * x), color = "#084c61") +
+      * exp(-exp(LCRegressions$estimate[3]) * x), color = "#084c61", size = 0.8) +
     geom_function(fun = function(x) 
       LCRegressions$estimate[4] + (LCRegressions$estimate[5] - LCRegressions$estimate[4]) 
-      * exp(-exp(LCRegressions$estimate[6]) * x), color = "#1fbbcc") +
+      * exp(-exp(LCRegressions$estimate[6]) * x), color = "#1fbbcc", size = 0.8) +
     geom_function(fun = function(x) 
       LCRegressions$estimate[7] + (LCRegressions$estimate[8] - LCRegressions$estimate[7]) 
-      * exp(-exp(LCRegressions$estimate[9]) * x), color = "#ffbe38") +
+      * exp(-exp(LCRegressions$estimate[9]) * x), color = "#ffbe38", size = 0.8) +
     geom_function(fun = function(x) 
       LCRegressions$estimate[10] + (LCRegressions$estimate[11] - LCRegressions$estimate[10]) 
-      * exp(-exp(LCRegressions$estimate[12]) * x), color = "#db3a34") +
-    geom_point(pch = 1, cex = 2) +
-    geom_errorbar(ymin = PARavg$regressionA - PARavg$stdev, ymax = PARavg$regressionA + PARavg$stdev) +
-    theme_cust())
+      * exp(-exp(LCRegressions$estimate[12]) * x), color = "#db3a34", size = 0.8) +
+    geom_point(pch = 1, cex = 3) +
+    theme_cust() +
+    theme(legend.position = c(0.14, 0.9)))
 
-ggsave("img\\partop_temp.png", plot = parTempPlot, width = 8, height = 7)
+ggsave("img\\partop_temp.png", plot = parTempPlot, width = 11, height = 8)
 
 
 
@@ -510,8 +572,8 @@ ggsave("img\\partop_temp.png", plot = parTempPlot, width = 8, height = 7)
 
 (waterTempPlot <- ggplot(WCphotosynth, aes(x = waterContent, y = a, color = tempCat)) +
     scale_color_manual(values = temp.palette) +
-    xlab("Water content (%)") + 
-    ylab(expression("Net photosynthetic rate ( "*mu*~mol~m^-2~s^-1*")"))  +
+    xlab("\nWater content (%)") + 
+    ylab(expression("Net photosynthetic rate ("*mu*~mol~m^-2~s^-1*")"))  +
     labs(color = "Temperature (°C)") +
     geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4) +
     geom_function(fun = function(x)                                              # t = 5
@@ -538,12 +600,14 @@ ggsave("img\\partop_temp.png", plot = parTempPlot, width = 8, height = 7)
     geom_function(fun = function(x)                                              # t = 20
       WCRregressions$estimate[10] + WCRregressions$estimate[11] * x 
       + WCRregressions$estimate[12] * x^2, color = "#db3a34", size = 0.8) +
-    geom_point(pch = 1, cex = 2) +
-    geom_point(data = WCresp, pch = 2) +
-    theme_cust())
+    geom_point(pch = 1, cex = 3) +
+    geom_point(data = WCresp, pch = 2, cex = 3) +
+    theme_cust() +
+    theme(legend.position = c(0.15, 0.9)))
 
 
-ggsave("img\\water_temp.png", plot = waterTempPlot, width = 8, height = 7)
+
+ggsave("img\\water_temp.png", plot = waterTempPlot, width = 10, height = 9)
 
 
 
@@ -587,11 +651,13 @@ tempAvg <- TC %>%
   distinct(parCat, tcuv, a, stdev) %>% 
   filter(parCat %in% c(0, 550))
 view(tempAvg)
+lab2 <- bquote("Figure X. μmol m"^-2)
+label <- as.character(expression("Figure X. Temperature response of NP at PPFD = 550 "*mu*mol~m^-2~s^-1* "(open circles) and of DR (triangles). Error bars are one standard deviation. There was no signficant relationship between temperature and NP at PPFD = 550 "*mu*mol~m^-2~s^-1*" (QR, R2 = 0.135, F2, 24 = 1.875, p = 0.175, n = 1). There was a signficant relationship between DR and temperature (QR, R2 = 0.724, F2, 30 = 43.03, p < 0.01, n = 1)"))
 
 (tempParPlot02 <- ggplot(tempAvg, aes(x = tcuv, y = a, shape = parCat)) +
-    geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4) +
-    labs(x = "Temperature (°C)", 
-         y = expression("Net photosynthetic rate ( "*mu*~mol~m^-2~s^-1*")")) +
+    geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4, size = 0.75) +
+    labs(x = "\nTemperature (°C)", 
+         y = expression("Net photosynthetic rate ("*mu*~mol~m^-2~s^-1*")")) +
     ylim(-3, 3) +
     geom_function(fun = function(x)                                              # par = 0
       TCRegressions$estimate[1] + TCRegressions$estimate[2] * x 
@@ -600,13 +666,12 @@ view(tempAvg)
       TCRegressions$estimate[16] + TCRegressions$estimate[17] * x 
       + TCRegressions$estimate[18] * x^2) +
     geom_errorbar(ymin = tempAvg$a - tempAvg$stdev, ymax = tempAvg$a + tempAvg$stdev, width = 0.4) +
-    geom_point() +
+    geom_point(cex = 3.5) +
     scale_shape_manual(values = c(2, 1), name = "PPFD") +
     theme_cust() +
     theme(legend.position = c(0.10, 0.7)))
 
 ggsave("img\\temp_par02.png", plot = tempParPlot02, width = 8, height = 8)
-
 
 # trying plot3Drgl ----
 ### removing any lines where variables = NA

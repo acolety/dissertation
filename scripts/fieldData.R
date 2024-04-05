@@ -17,17 +17,18 @@ library(patchwork)
 theme_cust <- function(){            
   theme_classic() +                          
     theme(axis.ticks.length = unit(-0.2, "cm"),
-          axis.text.x = element_text(size = 12),       
-          axis.text.y = element_text(size = 12),
-          axis.title = element_text(size = 14),
+          axis.text.x = element_text(size = 18),       
+          axis.text.y = element_text(size =18),
+          axis.title = element_text(size = 24),
           panel.grid = element_blank(),
           plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), units = "cm"),
-          legend.text = element_text(size = 12),
-          legend.title = element_text(size = 10),
+          legend.text = element_text(size = 18),
+          legend.title = element_text(size = 18),
           legend.position = c(0.12, 0.9),
           legend.margin = margin(6, 6, 6, 6),
           legend.box.background = element_rect(size = 1.1))
 }
+
 
 ## color palette
 
@@ -63,6 +64,7 @@ fieldData <- fieldData %>%
          tleaf = as.numeric(tleaf), tamb = as.numeric(tamb), 
          tmin.max = as.numeric(tmin.max), partop = as.numeric(partop), 
          paramb = as.numeric(paramb), rh = as.numeric(rh), e = as.numeric(e),
+         parweatherstation = as.numeric(parweatherstation),
          vpd = as.numeric(vpd), gh2o = as.numeric(gh2o), a = as.numeric(a), 
          ci = as.numeric(ci), ca = as.numeric(ca), wa = as.numeric(wa), 
          object = as.factor(object), weight = as.numeric(weight),
@@ -370,7 +372,7 @@ fieldData %>%
 ### A ~ light
 LCSan <- fieldData %>% 
   filter(species == "sanionia", 
-         waterContent > 90,
+         waterContent > 124,  # water limitation point from field data
          between(tempWS, 3, 6))
 
 ggplot(LCSan, aes(x = partop, y = aCorrected, color = tempWS)) +   
@@ -380,19 +382,47 @@ ggplot(LCSan, aes(x = partop, y = aCorrected, color = tempWS)) +
 sanLC <- nls(aCorrected ~ SSasymp(partop, Asym, R0, lrc), data = LCSan)
 summary(sanLC)
 plot(nlsResiduals(sanLC))
-overview(sanLC)    
+overview(sanLC)
 
-(LCSanPlot <- ggplot(LCSan, aes(x = partop, y = aCorrected)) +
+## calculating R2 measure for nls
+(RSS.p <- sum(residuals(sanLC)^2))  # residual sum of squares
+(TSS <- sum((LCSan$aCorrected - mean(LCSan$aCorrected))^2))  # total sum of squares
+1 - (RSS.p/TSS)  # 0.167
+
+
+(LCSanPlot0 <- ggplot(LCSan, aes(x = partop, y = aCorrected)) +
     geom_point(pch = 1) + 
     geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4) +
     xlab(expression("PPFD ( "*mu*~mol~m^-2~s^-1*")")) +
     ylab(expression("Net photosynthetic rate ( "*mu*~mol~m^-2~s^-1*")")) +
     geom_function(fun = function(x) 
-      3.6479 + (0.3799 - 3.6479) * exp(-exp(-5.5157) * x)) +
+      4.1788 + (1.2881 - 4.1788) * exp(-exp(-6.0263) * x)) +
+    theme_cust())
+
+(LCSanPlot <- ggplot(LCSan, aes(x = partop, y = aCorrected)) +
+    geom_point(pch = 1, cex = 3) + 
+    geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4) +
+    xlab(expression("PPFD ("*mu*mol~photons~m^-2~s^-1*")")) +
+    ylab(expression("Net photosynthetic rate ("*mu*mol~CO[2]~m^-2~s^-1*")")) +
     theme_cust())
 
 ggsave("img\\field_light.png", plot = LCSanPlot, width = 8, height = 8)
 
+
+## light compensation and saturation points
+### compensation
+LC.field <- function(x) {
+  4.1788 + (1.2881 - 4.1788) * exp(-exp(-6.0263) * x)
+}
+
+uniroot(LC.field, interval = c(0, 500))  # can't calculate bc model has it at PPFD < 0
+
+### saturation
+LSP.field <- function(x) {
+  (4.1788 + (1.2881 - 4.1788) * exp(-exp(-6.0263) * x)) - (0.9 * 4.1788)
+}
+
+uniroot(LSP.field, interval = c(0, 1250))  # PPFD = 545
 
 
 ### a ~ water content
@@ -405,18 +435,39 @@ sanWC <- lm(aCorrected ~ poly(waterContent, degree = 2, raw = TRUE), data = WCSa
 plot(sanWC)
 summary(sanWC)
 
+#### r2 equivalent
+(RSS.p2 <- sum(residuals(sanWC)^2))  # residual sum of squares
+(TSS2 <- sum((WCSan$aCorrected - mean(WCSan$aCorrected))^2))  # total sum of squares
+1 - (RSS.p2/TSS2)  # model actually calculates this and they aren't exactly the same but close enough?
+
 (sanWCPlot <- ggplot(WCSan, aes(x = waterContent, y = aCorrected)) +
-    geom_point(pch = 1) +
+    geom_point(pch = 1, cex = 3) +
     geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4) +
     labs(x = "Water content (%)",
-         y = expression("Net photosynthetic rate ( "*mu*~mol~m^-2~s^-1*")"),
+         y = expression("Net photosynthetic rate ("*mu*mol~photons~m^-2~s^-1*")"),
          color = "PPFD") +
     geom_function(fun = function(x)                                              # t = 5
       -1.419e+01 + 1.484e-01 * x 
       + -2.762e-04 * x^2) +
     theme_cust())
 
-ggsave("img\\field_water.png", plot = sanWCPlot, width = 8, height = 8)
+ggsave("img\\field_water.png", plot = sanWCPlot, width = 10, height = 8)
+
+
+#### determining WCP
+WC.field <- function(x) {
+  -1.419e+01 + (1.484e-01 * x) + (-2.762e-04 * x^2)
+}
+
+uniroot(WC.field, interval = c(113, 200))
+
+#### determining WCopt
+optimize(function(x)                                                           
+  -1.419e+01 + (1.484e-01 * x) + (-2.762e-04 * x^2), c(200, 400), maximum = T) # 268.65%, NP = 5.74   
+
+##### getting upper and lower bounds (NP +/- 10%)
+uniroot.all(function(x)                                                           
+  (-1.419e+01 + (1.484e-01 * x) + (-2.762e-04 * x^2)) - (0.9 *5.743526), c(0, 500)) # 223.04 - 314.25%
 
 
 ### controlling partop to be above light sat
@@ -441,46 +492,136 @@ summary(sanWC2)
 ## A ~ time
 (timeNP <- ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = aCorrected)) +
               scale_x_continuous(expand = c(0, 0), limits = c(0, 42)) +
+              labs(title = "(d1)") +
               xlab("Days") +
-              ylab(expression("Net photosynthetic rate ( "*mu*~mol~m^-2~s^-1*")")) +
-              geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4) +
+              ylab(expression("Net photosynthetic rate ("*mu*mol~CO[2]~m^-2~s^-1*")")) +
+              geom_hline(yintercept = 0, color = "#323031", linetype = "dashed", size = 1, alpha = 0.75) +
               geom_point() +
               geom_line() +
-              theme_cust())
+              theme_cust() +
+              theme(axis.title = element_text(size = 18),
+                    title = element_text(size = 18)))
+
+(histNP <- ggplot(sanionia, aes(x = aCorrected)) +
+  geom_histogram(binwidth = 0.5) +
+  scale_x_continuous(expand = c(0, 0), limits = c(-1, 7)) +
+  scale_y_continuous(expand = expansion(mult = 0, add = c(0, 3))) +
+  labs(title = "(d2)", 
+       x = expression("Net photosynthetic rate ("*mu*mol~CO[2]~m^-2~s^-1*")"),
+       y = "Frequency") +
+  geom_vline(xintercept = 0, color = "#323031", lty = "dashed", size = 1, alpha = 0.75) +
+  theme_cust() +
+  theme(axis.title = element_text(size = 20),
+        title = element_text(size = 18)))
+
+
 
 ## WC ~ time
 (timeWC <- ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = waterContent)) +
-            labs(x = NULL, y = "Water content(%)") +
+            labs(title = "(c1)", x = NULL, y = "Water content(%)") +
             scale_x_continuous(expand = c(0, 0), limits = c(0, 42)) +
-            annotate("rect", xmin = 0, xmax = 42, ymin = 90, ymax = 130,
-                     alpha = .1) +
+            geom_hline(yintercept = 124.4, color = "#323031", alpha = 0.75, lty = "dashed", size = 1) +   # water limited point from field
+            geom_hline(yintercept = 269, color = "#db3a34", lty = "dashed", size = 1, alpha = 0.75) +
+            geom_rect(xmin = 0, xmax = 42, ymin = 224, ymax = 314, fill = "#db3a34", alpha = 0.005) +
             geom_point() +
             geom_line() +
             theme_cust() +
-            theme(axis.text.x = element_blank()))
+            theme(axis.text.x = element_blank(),
+                  axis.title = element_text(size = 20),
+                  title = element_text(size = 18)))
+
+(histWC <- 
+ggplot(sanionia, aes(x = waterContent)) +
+  geom_rect(xmin = 224, xmax = 314, ymin = 0, ymax = 12.25, fill = "#db3a34", alpha = 0.005) +
+  geom_histogram(binwidth = 20) +
+  scale_x_continuous(expand = c(0, 0), limits = c(50, 325)) +
+  scale_y_continuous(expand = expansion(mult = 0, add = c(0, 0.25))) +
+  labs(title = "(c2)",
+       x = "Water content (%)",
+       y = "Frequency") +
+  geom_vline(xintercept = 269, color = "#db3a34", lty = "dashed", size = 1, alpha = 0.75) +
+  geom_vline(xintercept = 124, color = "#323031", lty = "dashed", size = 1, alpha = 0.75) +
+  theme_cust() +
+  theme(axis.title = element_text(size = 20),
+        title = element_text(size = 18)))
+
+(histWC2 <- 
+    ggplot(sanionia, aes(x = waterContent)) +
+    geom_rect(xmin = 224, xmax = 314, ymin = 0, ymax = 12.25, fill = "#db3a34", alpha = 0.005) +
+    geom_rect(xmin = 92, xmax = 126, ymin = 0, ymax = 12.25, fill = "#1fbbcc", alpha = 0.005) +
+    geom_histogram(binwidth = 20) +
+    scale_x_continuous(expand = c(0, 0), limits = c(50, 325)) +
+    scale_y_continuous(expand = expansion(mult = 0, add = c(0, 0.25))) +
+    labs(x = "Water content (%)",
+         y = "Frequency") +
+    geom_vline(xintercept = 269, color = "#db3a34", lty = "dashed", size = 1, alpha = 0.75) +
+    geom_vline(xintercept = 109, color = "#1fbbcc", lty = "dotdash", size = 1, alpha = 0.75) +
+    geom_vline(xintercept = 124, color = "#323031", lty = "dashed", size = 1, alpha = 0.75) +
+    geom_vline(xintercept = 56, color = "#084c61", lty = "dotdash", size = 1, alpha = 0.75) +
+    theme_cust())
+
+ggsave("img\\WCfield_lab.png", plot = histWC2, width = 9, height = 7)
 
 ## tempWS ~ time
 (timeTemp <- ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = tempWS)) +
-              labs(x = NULL, y = "Temperature (°C)") +
+              labs(title = "(b1)",
+                   x = NULL, y = "Temperature (°C)") +
               scale_x_continuous(expand = c(0, 0), limits = c(0, 42)) +
               ylim(2, 6.2) +
               geom_point() +
               geom_line() +
               theme_cust() +
-              theme(axis.text.x = element_blank()))
+              theme(axis.text.x = element_blank(),
+                    axis.title = element_text(size = 20),
+                    title = element_text(size = 18)))
 
-## partop ~ time
-(timePAR <- ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = partop)) +
+(histTemp <- 
+ggplot(sanionia, aes(x = tempWS)) +
+  geom_histogram(bins = 10) +
+  scale_x_continuous(expand = expansion(mult = 0, add = c(0, 0.25))) +
+  scale_y_continuous(expand = expansion(mult = 0, add = c(0, 4))) +
+  labs(title = "(b2)", 
+       x = "Temperature (°C)",
+       y = "Frequency") +
+  theme_cust() +
+  theme(axis.title = element_text(size = 20),
+        title = element_text(size = 18)))
+
+## parWS ~ time
+(timePAR <- ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = as.numeric(parweatherstation))) +
              xlab(NULL) +
-             ylab(expression("PPFD ( "*mu*~mol~m^-2~s^-1*")")) +
-             geom_hline(yintercept = 480, alpha = 0.6, lty = "dotted") +  # light sat point from lab
+             labs(title = "(a1)") +
+             ylab(expression("PPFD ("*mu*mol~photons~m^-2~s^-1*")")) +
+             geom_hline(yintercept = 34, color = "#323031", lty = "dashed", size = 1, alpha = 0.75) +
+             geom_hline(yintercept = 480, color = "#db3a34", alpha = 0.75, lty = "dashed", size = 1) +  # light sat point from field
              scale_x_continuous(expand = c(0, 0), limits = c(0, 42)) +
              geom_point() +
              geom_line() +
              theme_cust() +
-             theme(axis.text.x = element_blank()))
+             theme(axis.text.x = element_blank(),
+                   axis.title = element_text(size = 20),
+                   title = element_text(size = 18)))
+
+(histPAR <- 
+ggplot(sanionia, aes(x = as.numeric(parweatherstation))) +
+  geom_histogram(binwidth = 150) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 2150)) +
+  scale_y_continuous(expand = expansion(mult = 0, add = c(0, 6))) +
+  labs(title = "(a2)",
+       x = expression("PPFD ("*mu*mol~photons~m^-2~s^-1*")"),
+       y = "Frequency") +
+  geom_vline(xintercept = 480, color = "#db3a34", lty = "dashed", size = 1, alpha = 0.75) +
+  geom_vline(xintercept = 34, color = "#323031", lty = "dashed", size = 1, alpha = 0.75) +
+  theme_cust() +
+  theme(axis.title = element_text(size = 20),
+        title = element_text(size = 18)))
+
 
 ## arranging together
-environment <- timePAR / timeTemp / timeWC / timeNP
+(enviro <- ((timePAR / timeTemp / timeWC / timeNP) | (histPAR / histTemp / histWC / histNP)) + 
+    plot_layout(widths = c(2, 1)))
 
-ggsave("img\\enviro.png", plot = environment, width = 14, height = 16)
+ggsave("img\\enviro.png", plot = enviro, width = 17, height = 18)
+
+
+
