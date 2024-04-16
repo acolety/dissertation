@@ -14,6 +14,7 @@ library(stats)
 library(aomisc)
 library(rootSolve)
 library(scatterplot3d)
+library(patchwork)
 
 # FUNCTIONS AND DESIGN ----
 ## theme for plots
@@ -190,6 +191,8 @@ summary(LC5)
 plot(nlsResiduals(LC5))
 overview(LC5)                                                                 # find a way to assess goodness of fit
 
+
+
 ##### pseudo R2
 1 - ((sum(residuals(LC5)^2)) / (sum((LC5dat$a - mean(LC5dat$a))^2)))
 
@@ -200,6 +203,7 @@ LC10 <-  LC %>%
 summary(LC10)
 plot(nlsResiduals(LC10))
 overview(LC10)
+
 
 ##### pseudo R2
 1 - ((sum(residuals(LC10)^2)) / (sum((LC10dat$a - mean(LC10dat$a))^2)))
@@ -400,6 +404,8 @@ WCRregressions <- WCresp %>%
   group_by(tempCat) %>% 
   do(tidy(lm(a ~ poly(waterContent, degree = 2, raw = TRUE), data = .))) 
 
+
+
 WCR5 <-  WCresp %>% 
   filter(tempCat == 5)  %>% 
   lm(a ~ poly(waterContent, degree = 2, raw = TRUE), data = .)
@@ -491,33 +497,40 @@ summary(TC800)
 
 
 (tempParPlot00 <- ggplot(TC, aes(x = tcuv, y = a, color = parCat)) +
-                  geom_point() +
+                  scale_color_manual(values = c("#084c61", "black", "#ffbe38", "cornsilk3", "#1fbbcc", "orangered", "darkorchid4", "chocolate4")) +
+                  geom_jitter(width = 0.5, height = 0, cex = 2, pch = 1) +
+                  labs(y = expression("Net photosynthetic rate ("*mu*~mol~m^-2~s^-1*")"),
+                       x = "Temperature (°C)",
+                       color = "PPFD") +
                   geom_function(fun = function(x)                                              # par = 0
                     TCRegressions$estimate[1] + TCRegressions$estimate[2] * x 
-                    + TCRegressions$estimate[3] * x^2, color = "red") +
+                    + TCRegressions$estimate[3] * x^2, color = "#084c61") +
                   geom_function(fun = function(x)                                              # par = 50
                     TCRegressions$estimate[4] + TCRegressions$estimate[5] * x 
-                    + TCRegressions$estimate[6] * x^2, color = "orange") +
+                    + TCRegressions$estimate[6] * x^2, color = "black") +
                   geom_function(fun = function(x)                                              # par = 100
                     TCRegressions$estimate[7] + TCRegressions$estimate[8] * x 
-                    + TCRegressions$estimate[9] * x^2, color = "yellowgreen") +
+                    + TCRegressions$estimate[9] * x^2, color = "#ffbe38") +
                   geom_function(fun = function(x)                                              # par = 200
                     TCRegressions$estimate[10] + TCRegressions$estimate[11] * x 
-                    + TCRegressions$estimate[12] * x^2, color = "green") +
+                    + TCRegressions$estimate[12] * x^2, color = "cornsilk3") +
                   geom_function(fun = function(x)                                              # par = 400
                     TCRegressions$estimate[13] + TCRegressions$estimate[14] * x 
-                    + TCRegressions$estimate[15] * x^2, color = "blue") +
+                    + TCRegressions$estimate[15] * x^2, color = "#1fbbcc") +
                   geom_function(fun = function(x)                                              # par = 550
                     TCRegressions$estimate[16] + TCRegressions$estimate[17] * x 
-                    + TCRegressions$estimate[18] * x^2, color = "darkblue") +
+                    + TCRegressions$estimate[18] * x^2, color = "orangered") +
                   geom_function(fun = function(x)                                              # par = 800
                     TCRegressions$estimate[19] + TCRegressions$estimate[20] * x 
-                    + TCRegressions$estimate[21] * x^2, color = "purple") +
+                    + TCRegressions$estimate[21] * x^2, color = "darkorchid4") +
                   geom_function(fun = function(x)                                              # par = 1200
                     TCRegressions$estimate[22] + TCRegressions$estimate[23] * x 
-                    + TCRegressions$estimate[24] * x^2, color = "pink") +
-                  theme_classic())
+                    + TCRegressions$estimate[24] * x^2, color = "chocolate4") +
+                  geom_hline(yintercept = 0, lty = "dashed", size = 1, alpha = 0.5) +
+                  theme_cust() +
+                  theme(legend.position = c(0.12, 0.15)))
 
+ggsave("img\\par_cat_temp.png", plot = tempParPlot00, width = 8, height = 10)
 
 # VISUALIZATION ----
 
@@ -572,7 +585,7 @@ ggsave("img\\partop_temp.png", plot = parTempPlot, width = 11, height = 8)
 
 (waterTempPlot <- ggplot(WCphotosynth, aes(x = waterContent, y = a, color = tempCat)) +
     scale_color_manual(values = temp.palette) +
-    xlab("\nWater content (%)") + 
+    xlab("Water content (%)") + 
     ylab(expression("Net photosynthetic rate ("*mu*~mol~m^-2~s^-1*")"))  +
     labs(color = "Temperature (°C)") +
     geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4) +
@@ -650,13 +663,11 @@ tempAvg <- TC %>%
   mutate(tcuv = as.numeric(tcuv)) %>% 
   distinct(parCat, tcuv, a, stdev) %>% 
   filter(parCat %in% c(0, 550))
-view(tempAvg)
-lab2 <- bquote("Figure X. μmol m"^-2)
-label <- as.character(expression("Figure X. Temperature response of NP at PPFD = 550 "*mu*mol~m^-2~s^-1* "(open circles) and of DR (triangles). Error bars are one standard deviation. There was no signficant relationship between temperature and NP at PPFD = 550 "*mu*mol~m^-2~s^-1*" (QR, R2 = 0.135, F2, 24 = 1.875, p = 0.175, n = 1). There was a signficant relationship between DR and temperature (QR, R2 = 0.724, F2, 30 = 43.03, p < 0.01, n = 1)"))
+
 
 (tempParPlot02 <- ggplot(tempAvg, aes(x = tcuv, y = a, shape = parCat)) +
     geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4, size = 0.75) +
-    labs(x = "\nTemperature (°C)", 
+    labs(x = "Temperature (°C)", 
          y = expression("Net photosynthetic rate ("*mu*~mol~m^-2~s^-1*")")) +
     ylim(-3, 3) +
     geom_function(fun = function(x)                                              # par = 0
@@ -673,59 +684,155 @@ label <- as.character(expression("Figure X. Temperature response of NP at PPFD =
 
 ggsave("img\\temp_par02.png", plot = tempParPlot02, width = 8, height = 8)
 
-# trying plot3Drgl ----
-### removing any lines where variables = NA
-data3d <- sanioniaLab %>% 
-  drop_na(weight, tcuv, partop)
 
 
 
-# assigning vectors to be coordinates
-x <- sanioniaLab %>% 
-  drop_na(weight) %>% 
-  pull(partop)
-y <- sanioniaLab %>% 
-  drop_na(weight) %>% 
-  pull(weight)
-z <- sanioniaLab %>% 
-  drop_na(weight) %>% 
-  pull(tcuv)
-plotCol <- sanioniaLab %>% 
-  drop_na(weight) %>% 
-  pull(a)
+# comparison of light and water models for field vs lab data  ----
+## creating df of info from light models
+### field 
+sanLC <- nls(aCorrected ~ SSasymp(partop, Asym, R0, lrc), data = LCSan)
+summary(sanLC)
+plot(nlsResiduals(sanLC))
+overview(sanLC)
+
+### lab (at t = 5)
+LC5 <- LC %>% 
+  filter(tempCat == 5) %>% 
+  nls(a ~ SSasymp(partop, Asym, R0, lrc), data = .)
+summary(LC5)
+plot(nlsResiduals(LC5))
+overview(LC5)       
+
+Regression <- c(rep("Field data", 3), rep("Lab data", 3))
+parameter <- rep(c("a", "b", "c"), 2)
+estimate <- c(4.1788, 1.2881, -6.0263, 3.1397, -0.6030, -5.2671)
+tlower <- c(2.376404, -2.742961, -8.795165, 2.6877742, -0.9233707, -5.7422698)
+tupper <- c(5.981278, 5.319116, -3.257440, 3.5915746, -0.2826472, -4.7918849)
+
+lightComparison <- data.frame(regression, parameter, estimate, tlower, tupper)
+
+## visualization for light model comparison
+(lightModelComparison <- ggplot(lightComparison, aes(x = parameter, y = estimate, shape = Regression)) +
+  geom_point(position = position_dodge(width=0.3), cex = 2.5) +
+  labs(x = "Parameter", y = "Estimated value") +
+  ylim(-10, 8) +
+  geom_hline(yintercept = 0, lty = "dashed", size = 1, alpha = 0.2) +
+  geom_errorbar(ymin = tlower, ymax = tupper, width = 0.2, position = position_dodge(width = 0.3)) +
+  theme_cust() +
+  theme(legend.position = c(0.12, 0.15)))
+
+ggsave("img\\light_mod_comparison.png", plot = lightModelComparison, width = 12, height = 7)
 
 
-### light x temp x water
-scatter3D(x, y, z,            # x, y, z coordinates
-          colvar = plotCol,                                              # determines colors of points
-          pch = 19, cex = 1,                                                   # point size and shape
-          colkey = list(side = 1, length = 0.5),                               # position and scale of legend
-          bty = "b2",                                                          # box style
-          theta = 30, phi = 15,                                               # viewing angle
-          xlab = "PPFD", ylab = "weight", zlab = "temperature",                # axis labels
-          ticktype = "detailed")
+## creating df for water models
+### field
+sanWC <- lm(aCorrected ~ poly(waterContent, degree = 2, raw = TRUE), data = WCSan)
+summary(sanWC)
 
+### lab (photosynth at t = 5)
+WC5 <-  WCphotosynth %>% 
+  filter(tempCat == 5)  %>% 
+  lm(a ~ poly(waterContent, degree = 2, raw = TRUE), data = .)
+summary(WC5)
 
-plot3d(x, y, z,            # x, y, z coordinates
-          colvar = plotCol,                                              # determines colors of points
-          pch = 19, cex = 1,                                                # viewing angle
-          xlab = "PPFD", ylab = "weight", zlab = "temperature",                # axis labels
-          ticktype = "detailed", surf = list(x = x.pred, y = y.pred, 
-                                             z = z.pred, facets = NA, col = "red", fit = fitpoints)                                                # adding ticks, can specify nticks = 
-          )
-length(plotCol$x)
+Regression <- c(rep("Field data", 3), rep("Lab data", 3))
+parameter2 <- rep(c("a", "b", "c"), 2)
+estimate2 <- c(-1.419e+01, 1.484e-01, -2.762e-04, 
+               -7.9119641, 0.1905403, -0.0008762)
+se <- c(3.784e+00, 3.678e-02, 8.713e-05,
+        1.7454898, 0.0378941, 0.0001900)
 
+waterComparison <- data.frame(Regression, parameter2, estimate2, se)
+view(waterComparison)
 
-### A ~ WC * temp
-#### creating matrix
-barplotDf <- sanioniaLab %>% 
-  filter(partop > 5,
-         !tempCat == 25) %>% 
-  mutate(tempCat = as.character(tempCat)) %>% 
-  drop_na(c(weight, tempCat, partop)) %>% 
-  dplyr::select(tempCat, waterContent, a)
+## visualization for water model comparison
+(waterModelComparison <- ggplot(waterComparison, aes(x = parameter2, y = estimate2, shape = Regression)) +
+    geom_point(position = position_dodge(width=0.3), cex = 2.5) +
+    ylim(-15, 15) +
+    geom_hline(yintercept = 0, lty = "dashed", size = 1, alpha = 0.8) +
+    geom_errorbar(ymin = estimate2 - se, ymax = estimate2 + se, width = 0.2, position = position_dodge(width = 0.3)) +
+    theme_cust() +
+    theme(legend.position = c(0.12, 0.9)))
 
-scatterplot3d(barplotDf, color = barplotDf$tempCat, type = "h", lwd = 5, pch = " ", 
-              x.ticklabs = c(5, 5.5, 10, 10.5, 15, 15.5, 20),
-              xlab = "tempCat", ylab = "water content", zlab = "a", box = F)
-view(barplotDf)
+errorbars <- waterComparison %>% 
+  mutate(min = estimate2 - (2 * se),
+         max = estimate2 + (2 * se))
+
+(waterAComp <- waterComparison %>% 
+    filter(parameter2 == "c") %>% 
+    ggplot(., aes(x = parameter2, y = estimate2, shape = Regression)) +
+      geom_point(position = position_dodge(width = 0.3), cex = 3) +
+      geom_hline(yintercept = 0, lty = "dashed", size = 1, alpha = 0.2) +
+      geom_errorbar(ymin = c(-0.00036333, -0.00106620), 
+                    ymax = c(-0.00018907, -0.00068620), width = 0.2, 
+                    position = position_dodge(width = 0.3)) +
+      ylim(-0.0013, 0) +
+    labs(x = NULL, y = "Estimated value") +
+      theme_cust() +
+      theme(legend.position = c(0.23, 0.15)))
+
+(waterAComp2 <- waterComparison %>% 
+    filter(parameter2 == "c") %>% 
+    ggplot(., aes(x = parameter2, y = estimate2, shape = Regression)) +
+    geom_point(position = position_dodge(width = 0.3), cex = 3) +
+    geom_hline(yintercept = 0, lty = "dashed", size = 1, alpha = 0.2) +
+    geom_errorbar(ymin = c(-0.00045046, -0.00125620), 
+                  ymax = c(-0.00010194, -0.00049620), width = 0.2, 
+                  position = position_dodge(width = 0.3)) +
+    ylim(-0.0013, 0) +
+    labs(x = NULL, y = NULL) +
+    theme_cust() +
+    theme(legend.position = "none"))
+
+(waterBComp <- waterComparison %>% 
+    filter(parameter2 == "b") %>% 
+  ggplot(., aes(x = parameter2, y = estimate2, shape = Regression)) +
+  geom_point(position = position_dodge(width = 0.3), cex = 3) +
+  geom_errorbar(ymin = c(0.11162000, 0.15264620), 
+                ymax = c(0.18518000, 0.22843440), width = 0.2, 
+                position = position_dodge(width = 0.3)) +
+  ylim(0.05, 0.25) +
+    labs(x = "Parameter", y = NULL) +
+  theme_cust() +
+  theme(legend.position = "none"))
+
+(waterBComp2 <- waterComparison %>% 
+    filter(parameter2 == "b") %>% 
+    ggplot(., aes(x = parameter2, y = estimate2, shape = Regression)) +
+    geom_point(position = position_dodge(width = 0.3), cex = 3) +
+    geom_errorbar(ymin = c(0.07484000, 0.11475210), 
+                  ymax = c(0.22196000, 0.26632850), width = 0.2, 
+                  position = position_dodge(width = 0.3)) +
+    ylim(0.05, 0.30) +
+    labs(x = "Parameter", y = NULL) +
+    theme_cust() +
+    theme(legend.position = "none"))
+
+(waterCComp <- waterComparison %>% 
+    filter(parameter2 == "a") %>% 
+  ggplot(., aes(x = parameter2, y = estimate2, shape = Regression)) +
+  geom_point(position = position_dodge(width = 0.3), cex = 3) +
+  geom_errorbar(ymin = c(-17.97400000, -9.65745390), 
+                ymax = c(-10.40600000, -6.16647430), width = 0.2, 
+                position = position_dodge(width = 0.3)) +
+    labs(x = NULL, y = NULL) +
+  ylim(-20, -5) +
+  theme_cust() +
+  theme(legend.position = "none"))
+
+(waterCComp2 <- waterComparison %>% 
+    filter(parameter2 == "a") %>% 
+    ggplot(., aes(x = parameter2, y = estimate2, shape = Regression)) +
+    geom_point(position = position_dodge(width = 0.3), cex = 3) +
+    geom_errorbar(ymin = c(-21.75800000, -11.40294370), 
+                  ymax = c(-6.62200000, -4.42098450), width = 0.2, 
+                  position = position_dodge(width = 0.3)) +
+    labs(x = NULL, y = "Estimated value") +
+    ylim(-24, -5) +
+    theme_cust() +
+    theme(legend.position = c(0.23, 0.15)))
+
+(waterCoeff <- waterCComp2 + waterBComp2 + waterAComp2)
+  
+
+ggsave("img\\water_mod_comparison.png", plot = waterCoeff, width = 16, height = 6)

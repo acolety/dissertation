@@ -35,7 +35,6 @@ theme_cust <- function(){
 temp.palette <- c("#084c61", "#1fbbcc", "#ffbe38", "#db3a34", "#323031")
 
 
-# loading data ----
 fieldData <- list.files(path = ".\\data\\field", full.names = TRUE) %>% 
   lapply(read_csv) %>% 
   bind_rows() %>% 
@@ -126,7 +125,6 @@ fieldData <- fieldData %>%
   mutate(waterContentmm = ((sampleWeight - dryWeight) * 1000) / (area * 100)) %>%       # p sure this is good but double check           
   mutate(relativeWC = sampleWeight / saturatedWeight)                            # some RWC > 100, perhaps oversaturated as samples not shaken in field before measuring
 
-write.csv(fieldData, file = "data\\originalData\\field_data_corrected.csv")
 
 ## dataset for each species
 andreaea <- fieldData %>% 
@@ -374,6 +372,7 @@ LCSan <- fieldData %>%
   filter(species == "sanionia", 
          waterContent > 124,  # water limitation point from field data
          between(tempWS, 3, 6))
+length(LCSan$date)
 
 ggplot(LCSan, aes(x = partop, y = aCorrected, color = tempWS)) +   
   geom_point() +
@@ -518,7 +517,7 @@ summary(sanWC2)
 
 ## WC ~ time
 (timeWC <- ggplot(sanionia, aes(x = (cumulativeSeconds/60/60/24), y = waterContent)) +
-            labs(title = "(c1)", x = NULL, y = "Water content(%)") +
+            labs(title = "(c1)", x = NULL, y = "Water content (%)") +
             scale_x_continuous(expand = c(0, 0), limits = c(0, 42)) +
             geom_hline(yintercept = 124.4, color = "#323031", alpha = 0.75, lty = "dashed", size = 1) +   # water limited point from field
             geom_hline(yintercept = 269, color = "#db3a34", lty = "dashed", size = 1, alpha = 0.75) +
