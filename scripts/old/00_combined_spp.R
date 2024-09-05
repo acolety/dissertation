@@ -341,7 +341,6 @@ all00 <- bind_rows(andreaeaDf, chorisodontiumDf, himantormiaDf, polytrichumDf,
 ### View(all00)
 
 
-
 # data checks ----
 
 ## 1. collinearity

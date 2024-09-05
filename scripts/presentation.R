@@ -137,8 +137,8 @@ sanioniaField <- sanioniaField %>%
          saturatedWeight = 104.605) %>% 
   mutate(sampleWeight = weight - basketWeight) %>% 
   mutate(waterContent = ((sampleWeight - dryWeight) / dryWeight) * 100,
-        waterContentmm = ((sampleWeight - dryWeight) * 1000) / (area * 100),
-        relativeWC = sampleWeight / saturatedWeight)
+         waterContentmm = ((sampleWeight - dryWeight) * 1000) / (area * 100),
+         relativeWC = sampleWeight / saturatedWeight)
 
 ### lab
 #### category factors
@@ -732,7 +732,7 @@ uniroot(function(x)
     theme_cust()                                                                +
     theme(axis.title = element_text(size = 22),
           title = element_text(size = 18)))
-    
+
 
 #### par (weather station)
 (timePAR <- ggplot(sanioniaField, aes(x = (cumulativeSeconds/60/60/24), 
@@ -766,7 +766,7 @@ uniroot(function(x)
     theme_cust()                                                                +
     theme(axis.title = element_text(size = 22),
           title = element_text(size = 18)))
-    
+
 
 #### arranging and saving
 (enviro <- ((timePAR / timeWC / timeTemp / timeNP) | (histPAR / histWC / histTemp / histNP)) + 
@@ -777,11 +777,11 @@ ggsave("img\\enviro.png", plot = enviro, width = 17, height = 18)              #
 
 ### light
 (LCfieldPlot <- ggplot(LCfield, aes(x = partop, y = aCorrected))                +
-   geom_point(pch = 1, cex = 3)                                                 + 
-   geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4)               +
-   xlab(expression("PPFD ("*mu*mol~photons~m^-2~s^-1*")"))                      +
-   ylab(expression("Net photosynthetic rate ("*mu*mol~CO[2]~m^-2~s^-1*")"))     +
-   theme_cust())
+    geom_point(pch = 1, cex = 3)                                                 + 
+    geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4)               +
+    xlab(expression("PPFD ("*mu*mol~photons~m^-2~s^-1*")"))                      +
+    ylab(expression("Net photosynthetic rate ("*mu*mol~CO[2]~m^-2~s^-1*")"))     +
+    theme_cust())
 
 ggsave("img\\field_light.png", plot = LCfieldPlot, width = 8, height = 8)      # saving
 
@@ -804,19 +804,19 @@ ggsave("img\\field_water.png", plot = WCfieldPlot, width = 10, height = 8)     #
 ## lab
 ### light
 (parTempPlot <- ggplot(LC, aes(x = partop, y = a, color = tempCat))             +
-   scale_color_manual(values = temp.palette)                                    +
-   ylim(-3, 4)                                                                  +
-   geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4)               +
-   xlab(expression("PPFD ("*mu*mol~photons~m^-2~s^-1*")"))                      + 
-   ylab(expression("Net photosynthetic rate ("*mu*mol~CO[2]~m^-2~s^-1*")"))     +
-   labs(color = "Temperature (°C)")                                             +
-   geom_function(fun = LC.5, color = "#084c61", size = 0.8)                     +
-   geom_function(fun = LC.10, color = "#1fbbcc", size = 0.8)                    +
-   geom_function(fun = LC.15, color = "#ffbe38", size = 0.8)                    +
-   geom_function(fun = LC.20, color = "#db3a34", size = 0.8)                    +
-   geom_point(pch = 1, cex = 3)                                                 +
-   theme_cust()                                                                 +
-   theme(legend.position = c(0.14, 0.9)))
+    scale_color_manual(values = temp.palette)                                    +
+    ylim(-3, 4)                                                                  +
+    geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4)               +
+    xlab(expression("PPFD ("*mu*mol~photons~m^-2~s^-1*")"))                      + 
+    ylab(expression("Net photosynthetic rate ("*mu*mol~CO[2]~m^-2~s^-1*")"))     +
+    labs(color = "Temperature (°C)")                                             +
+    geom_function(fun = LC.5, color = "#084c61", size = 0.8)                     +
+    geom_function(fun = LC.10, color = "#1fbbcc", size = 0.8)                    +
+    geom_function(fun = LC.15, color = "#ffbe38", size = 0.8)                    +
+    geom_function(fun = LC.20, color = "#db3a34", size = 0.8)                    +
+    geom_point(pch = 1, cex = 3)                                                 +
+    theme_cust()                                                                 +
+    theme(legend.position = c(0.14, 0.9)))
 
 ggsave("img\\partop_temp.png", plot = parTempPlot, width = 11, height = 8)     # saving
 
@@ -857,6 +857,18 @@ ggsave("img\\partop_temp.png", plot = parTempPlot, width = 11, height = 8)     #
     geom_point(data = WCresp, pch = 2, cex = 3)                                 +
     theme_cust()                                                                +
     theme(legend.position = c(0.15, 0.9)))
+
+(WCfieldPlot <- ggplot(WCfield, aes(x = waterContent, y = aCorrected))          +
+    geom_point(pch = 1, cex = 3)                                                +
+    geom_hline(yintercept = 0, linetype = "longdash", alpha = 0.4)              +
+    labs(x = "Water content (%)",
+         y = expression("Net photosynthetic rate ("*mu*mol~photons~m^-2~s^-1*")"),
+         color = "PPFD")                                                        +
+    geom_function(fun = function(x)                                     
+      -1.419e+01 + 1.484e-01 * x 
+      + -2.762e-04 * x^2)                                                       +
+    theme_cust())
+
 
 ggsave("img\\water_temp.png", plot = waterTempPlot, width = 10, height = 9)    # saving
 
@@ -999,4 +1011,3 @@ ggsave("img\\light_mod_comparison.png", plot = lightModelComparison,           #
 
 ggsave("img\\water_mod_comparison.png", plot = waterCoeff,                     # saving
        width = 16, height = 6)
-
