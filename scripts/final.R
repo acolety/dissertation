@@ -273,6 +273,14 @@ LCRegressions <- LC %>%
   group_by(tempCat) %>% 
   do(tidy(nls(a ~ SSasymp(partop, Asym, R0, lrc), data = .))) 
 
+LCall <- nls(a ~ SSasymp(partop, Asym, R0, lrc), data = LC)
+LCallCoef <- tidy(LCall)
+
+# plot(nlsResiduals(LCall))
+# overview(LCall)
+# 1 - ((sum(residuals(LCall)^2)) / (sum((LC$a - mean(LC$a))^2))) 
+
+length(LC$a)
 #### t = 5
 LC5 <- nls(a ~ SSasymp(partop, Asym, R0, lrc), data = LC5dat)
 
@@ -654,6 +662,13 @@ TC1200 <-  TC %>%
 ## lab
 ### light
 #### light compensation point (LCP)
+##### t = ALL
+LC.all <- function(x) {
+  LCallCoef$estimate[1] + (LCallCoef$estimate[2] - LCallCoef$estimate[1]) * exp(-exp(LCallCoef$estimate[3]) * x)
+}
+
+print(uniroot(LC.all, interval = c(0, 500))$root)  
+
 ##### t = 5
 LC.5 <- function(x) {
   LCRegressions$estimate[1] + (LCRegressions$estimate[2] - LCRegressions$estimate[1]) * exp(-exp(LCRegressions$estimate[3]) * x)
@@ -684,6 +699,13 @@ print(uniroot(LC.20, interval = c(0, 500))$root)                               #
 
 
 #### light saturation point (LSP)
+##### t = ALL
+LSP.all <- function(x) {
+  (LCallCoef$estimate[1] + (LCallCoef$estimate[2] - LCallCoef$estimate[1]) * exp(-exp(LCallCoef$estimate[3]) * x)) - (0.9 * LCallCoef$estimate[1])
+}
+
+print(uniroot(LSP.all, interval = c(0, 1250))$root)  
+
 ##### t = 5
 LSP.5 <- function(x) {
   (LCRegressions$estimate[1] + (LCRegressions$estimate[2] - LCRegressions$estimate[1]) * exp(-exp(LCRegressions$estimate[3]) * x)) - (0.9 * LCRegressions$estimate[1])
